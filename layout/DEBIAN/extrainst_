@@ -1,0 +1,45 @@
+#!/bin/bash
+
+if [ "$1" = "configure" ] || [ "$1" = "install" ] || [ "$1" = "" ]; then
+    DAEMON_PLIST="/Library/LaunchDaemons/com.b1tbreaker.fridamanager.plist"
+    DAEMON_BIN="/usr/local/bin/fridamgr"
+    SOCK_DIR="/var/run"
+
+    # Detect rootless jailbreak
+    if [ -d "/var/jb" ]; then
+        DAEMON_PLIST="/var/jb/Library/LaunchDaemons/com.b1tbreaker.fridamanager.plist"
+        DAEMON_BIN="/var/jb/usr/local/bin/fridamgr"
+        SOCK_DIR="/var/jb/var/run"
+        mkdir -p "$SOCK_DIR"
+
+        # Patch the plist to use the rootless binary path
+        /usr/bin/plutil -replace ProgramArguments -json "[\"$DAEMON_BIN\"]" "$DAEMON_PLIST" 2>/dev/null || \
+        sed -i '' "s|/usr/local/bin/fridamgr|$DAEMON_BIN|g" "$DAEMON_PLIST" 2>/dev/null
+    fi
+
+    # Set permissions
+    chown root:wheel "$DAEMON_PLIST"
+    chmod 644 "$DAEMON_PLIST"
+    chown root:wheel "$DAEMON_BIN"
+    chmod 755 "$DAEMON_BIN"
+
+    # Kill any running daemon and clean up
+    killall fridamgr 2>/dev/null
+    sleep 1
+    rm -f /var/run/fridamgr.sock
+    rm -f /var/tmp/fridamgr.log
+
+    # Unload first in case of upgrade
+    launchctl bootout system/com.b1tbreaker.fridamanager 2>/dev/null
+    launchctl unload "$DAEMON_PLIST" 2>/dev/null
+    sleep 1
+
+    # Load daemon
+    if launchctl bootstrap system "$DAEMON_PLIST" 2>/dev/null; then
+        true
+    else
+        launchctl load "$DAEMON_PLIST" 2>/dev/null
+    fi
+fi
+
+exit 0

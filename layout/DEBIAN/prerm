@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [ "$1" = "remove" ] || [ "$1" = "install" ] || [ "$1" = "" ]; then
+    DAEMON_PLIST="/Library/LaunchDaemons/com.b1tbreaker.fridamanager.plist"
+
+    if [ -d "/var/jb" ]; then
+        DAEMON_PLIST="/var/jb/Library/LaunchDaemons/com.b1tbreaker.fridamanager.plist"
+    fi
+
+    # Stop daemon
+    launchctl bootout system/com.b1tbreaker.fridamanager 2>/dev/null
+    launchctl unload "$DAEMON_PLIST" 2>/dev/null
+    killall fridamgr 2>/dev/null
+    sleep 1
+
+    # Clean up socket
+    rm -f /var/run/fridamgr.sock
+
+    # Clean up preferences
+    rm -f /var/mobile/Library/Preferences/com.b1tbreaker.fridamanager.plist
+
+    # Clean up download history
+    rm -f /var/mobile/Library/com.b1tbreaker.fridamanager.history.plist
+
+    # Clean up log
+    rm -f /var/tmp/fridamgr.log
+fi
+
+exit 0
