@@ -317,19 +317,21 @@
         return;
     }
     [[FMSocketClient sharedClient] sendCommand:kFMCommandStart completion:^(NSString *response) {
-        [self showAlertWithTitle:@"Start" message:response ?: @"Failed to connect to daemon"];
+        if (![response hasPrefix:@"OK"]) {
+            [self showAlertWithTitle:@"Error" message:response ?: @"Failed to connect to daemon"];
+        }
         [self refreshStatusAsync];
     }];
 }
 
 - (void)stopServer {
     [[FMSocketClient sharedClient] sendCommand:kFMCommandStop completion:^(NSString *response) {
-        if ([response hasPrefix:@"OK"]) {
-            [self showAlertWithTitle:@"Stop" message:@"Stop command sent. Server will stop shortly."];
-        } else {
-            [self showAlertWithTitle:@"Stop" message:response ?: @"Failed to connect to daemon"];
+        if (![response hasPrefix:@"OK"]) {
+            [self showAlertWithTitle:@"Error" message:response ?: @"Failed to connect to daemon"];
         }
-        [self refreshStatusAsync];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self refreshStatusAsync];
+        });
     }];
 }
 
@@ -340,7 +342,9 @@
         return;
     }
     [[FMSocketClient sharedClient] sendCommand:kFMCommandRestart completion:^(NSString *response) {
-        [self showAlertWithTitle:@"Restart" message:response ?: @"Failed to connect to daemon"];
+        if (![response hasPrefix:@"OK"]) {
+            [self showAlertWithTitle:@"Error" message:response ?: @"Failed to connect to daemon"];
+        }
         [self refreshStatusAsync];
     }];
 }

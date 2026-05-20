@@ -1,23 +1,48 @@
-# FridaManager
-
-A jailbreak tweak for managing [frida-server](https://frida.re/) on iOS devices directly from Settings.
+<p align="center">
+  <img src="fridamgrprefs/Resources/icon@3x.png" width="140" alt="FridaManager icon">
+</p>
+<h1 align="center">FridaManager</h1>
+<p align="center">A jailbreak tweak for managing <a href="https://frida.re/">frida-server</a> on iOS devices directly from Settings.</p>
 
 ## Features
 
 - **Start / Stop / Restart** frida-server directly from Settings
-- **Server Status** — real-time display of running state, active port, binary path, and version
+- **Server Status** — real-time display of running state, active port, binary path and version
 - **Download & Install Frida Latest Versions** — view all available frida releases and install any frida-server version directly
 - **Custom Version Install** — enter a specific version number to download and install
 - **Configuration** — change the listening port and toggle USB-only mode (blocks Wi-Fi connections)
 - **Source Detection** — automatically detects if frida-server was installed by FridaManager or a package manager (Sileo, Zebra, Cydia, etc.)
 - **Package Manager Compatibility** — supports starting/stopping frida-server installed via package managers using `launchctl`
 - **Download History** — tracks which versions you've downloaded
-- **Uninstall** — remove the FridaManager-installed frida-server binary
+- **Uninstall** — remove the frida-server installed by FridaManager
 - **View Log** — view activity log for debugging
 
 ## Screenshots
 
-<!-- Add screenshots here -->
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://b1tbreaker.com/blog/fridamanager/">
+        <img src="https://b1tbreaker.com/blog/fridamanager/screenshots/main-panel.png" alt="Main panel">
+      </a>
+      <br><sub>Main panel</sub>
+    </td>
+    <td align="center">
+      <a href="https://b1tbreaker.com/blog/fridamanager/">
+        <img src="https://b1tbreaker.com/blog/fridamanager/screenshots/browse-versions.png" alt="Browse latest versions">
+      </a>
+      <br><sub>Browse latest versions</sub>
+    </td>
+    <td align="center">
+      <a href="https://b1tbreaker.com/blog/fridamanager/">
+        <img src="https://b1tbreaker.com/blog/fridamanager/screenshots/server-running.png" alt="Server running">
+      </a>
+      <br><sub>Server running</sub>
+    </td>
+  </tr>
+</table>
+
+<sub>Click any screenshot for the full write-up at <a href="https://b1tbreaker.com/blog/fridamanager/">b1tbreaker.com</a>.</sub>
 
 ## Requirements
 
@@ -27,11 +52,24 @@ A jailbreak tweak for managing [frida-server](https://frida.re/) on iOS devices 
 
 ## Installation
 
+### Via APT repository (recommended)
+
+Add the repo to your package manager:
+
+```
+https://027042.xyz
+```
+
+- **Sileo:** [`sileo://source/https://027042.xyz`](sileo://source/https://027042.xyz) — tap to add
+- **Zebra / other managers:** Sources → Add → `https://027042.xyz`
+
+Then search for **FridaManager** and install. The repo serves both rootless and rootful builds — your package manager picks the right one for your jailbreak.
+
 ### From .deb file
 
 1. Download the appropriate `.deb` file from [Releases](../../releases):
-   - **Rootless** (Dopamine, palera1n rootless, etc.): `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64.deb`
-   - **Rootful** (unc0ver, checkra1n, palera1n rootful, etc.): `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm.deb`
+   - **Rootless** (Dopamine, palera1n rootless, etc.): `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64_rootless.deb`
+   - **Rootful** (unc0ver, checkra1n, palera1n rootful, etc.): `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm_rootful.deb`
 2. Transfer the `.deb` to your device
 3. Install via your package manager or run:
    ```bash
@@ -74,7 +112,7 @@ See [Building from Source](#building-from-source) below.
 
 FridaManager automatically detects how frida-server was installed:
 
-- **FridaManager** — installed by this tweak. Full control: start, stop, restart, uninstall, and version management.
+- **FridaManager** — installed by this tweak. Full control: start, stop, restart, uninstall and version management.
 - **Package Manager** — installed via Sileo, Zebra, Cydia, or another package manager. FridaManager can start and stop it (via `launchctl`), but downloading new versions and uninstalling must be done through your package manager.
 
 The **Installed By** field in the Status section shows the current source.
@@ -98,33 +136,18 @@ frida-ps -H 127.0.0.1:<port>
 FridaManager consists of two components:
 
 ```
-┌─────────────────────────────┐     Unix Socket     ┌──────────────────────────┐
+┌─────────────────────────────┐     Unix Socket      ┌──────────────────────────┐
 │  Settings.app (Preferences) │ ◄──────────────────► │   fridamgr (Root Daemon) │
 │  FridaManagerPrefs bundle   │     via libSandy     │   LaunchDaemon (root)    │
 └─────────────────────────────┘                      └──────────────────────────┘
          UI / User input                              Server management, downloads,
                                                       config, process control
 ```
-
-### File Locations
-
-| File | Path | Description |
-|------|------|-------------|
-| Daemon binary | `/usr/local/bin/fridamgr` | The FridaManager daemon |
-| LaunchDaemon plist | `/Library/LaunchDaemons/com.b1tbreaker.fridamanager.plist` | Daemon launch configuration |
-| Managed frida-server | `/usr/local/bin/frida-server` | frida-server installed by FridaManager |
-| Preferences | `/var/mobile/Library/Preferences/com.b1tbreaker.fridamanager.plist` | Port and config settings |
-| Download history | `/var/mobile/Library/com.b1tbreaker.fridamanager.history.plist` | Version download log |
-| Daemon log | `/var/tmp/fridamgr.log` | Activity log (auto-truncated at 32KB) |
-| Socket | `/var/run/fridamgr.sock` | IPC socket between UI and daemon |
-
-> **Note:** On rootless jailbreaks, system paths are prefixed with `/var/jb/` (e.g., `/var/jb/usr/local/bin/fridamgr`).
-
 ## Building from Source
 
 ### Prerequisites
 
-1. **macOS** (Intel or Apple Silicon)
+1. **macOS**
 
 2. **Theos** — the jailbreak development toolkit:
    ```bash
@@ -132,14 +155,13 @@ FridaManager consists of two components:
    ```
    By default, Theos installs to `~/theos`. See the [Theos installation guide](https://theos.dev/docs/installation) for details.
 
-3. **iOS SDK** — Theos will prompt you to install one during setup. SDK 16.5 or later is required. If you need to install one manually:
+3. **iOS SDK** — Theos will prompt you to install one during setup. SDK 15.6 or later is required. If you need to install one manually:
    ```bash
    $THEOS/bin/get-sdks
    ```
 
 4. **libSandy headers** — install via Theos:
    ```bash
-   # If you have a package manager configured with Theos:
    $THEOS/bin/lib-install com.opa334.libsandy
    ```
    Or manually place `libSandy.h` in `$THEOS/include/` and `libSandy.dylib` in `$THEOS/lib/`.
@@ -230,7 +252,7 @@ FridaManager/
 | Jailbreak Type | Architecture | Status |
 |---------------|-------------|--------|
 | **Rootless** (Dopamine, palera1n) | `arm64` | Tested |
-| **Rootful** (unc0ver) | `arm` | Untested — should work, please report issues |
+| **Rootful** (unc0ver) | `arm` | Tested |
 
 **Supported iOS versions:** 14.0 and above
 

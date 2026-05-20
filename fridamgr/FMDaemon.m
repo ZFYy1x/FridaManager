@@ -137,15 +137,13 @@
 
     _isStopping = YES;
     NSString *sourceStr = _fridaServer.source == 1 ? @"FridaManager" : (_fridaServer.source == 2 ? @"Package Manager" : @"none");
-    FMLog(@"Stopping frida-server (async, source: %@)...", sourceStr);
+    FMLog(@"Stopping frida-server (source: %@)...", sourceStr);
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        [self->_fridaServer stop];
-        self->_isStopping = NO;
-        FMLog(@"Stop complete");
-    });
+    [_fridaServer stop];
+    _isStopping = NO;
+    FMLog(@"Stop complete");
 
-    return @"OK:stopping";
+    return @"OK:stopped";
 }
 
 - (NSString *)handleRestart {

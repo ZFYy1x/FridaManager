@@ -2,7 +2,7 @@ Package: com.b1tbreaker.fridamanager
 Name: FridaManager
 Version: 1.0.0
 Architecture: iphoneos-arm64
-Description: Manage frida-server from Settings.app. Start, stop, restart, download, and configure the Frida server on your jailbroken device.
+Description: Manage frida-server from Settings.app. Start, stop, restart, download and configure the Frida server on your jailbroken device.
 Maintainer: b1tbreaker
 Author: b1tbreaker
 Section: Tweaks

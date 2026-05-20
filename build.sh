@@ -24,6 +24,15 @@ make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 cp control.rootful control
 
 echo ""
+echo "--- Renaming packages ---"
+for f in packages/*_iphoneos-arm.deb; do
+    [ -f "$f" ] && mv "$f" "${f%_iphoneos-arm.deb}_iphoneos-arm_rootful.deb"
+done
+for f in packages/*_iphoneos-arm64.deb; do
+    [ -f "$f" ] && mv "$f" "${f%_iphoneos-arm64.deb}_iphoneos-arm64_rootless.deb"
+done
+
+echo ""
 echo "=== Build complete ==="
 echo "Packages are in: $(pwd)/packages/"
 ls -la packages/*.deb 2>/dev/null || echo "No packages found — check build output above."

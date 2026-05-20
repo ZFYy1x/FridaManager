@@ -1,8 +1,9 @@
 #import "FMDownloadManager.h"
 #import "FMCommon.h"
 #import "FMFridaServer.h"
-#import <compression.h>
 #import <sys/stat.h>
+#import <spawn.h>
+#import <compression.h>
 
 void FMLog(NSString *format, ...) {
     va_list args;
@@ -131,6 +132,76 @@ void FMLog(NSString *format, ...) {
     return resultData;
 }
 
+#pragma mark - Download to disk (avoids loading large files into memory)
+
+- (BOOL)downloadFileToPath:(NSString *)destPath fromURL:(NSString *)urlString {
+    FMLog(@"Downloading %@ to disk", urlString);
+
+    NSURL *url = [NSURL URLWithString:urlString];
+    if (!url) {
+        FMLog(@"ERROR: bad URL");
+        return NO;
+    }
+
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setValue:@"FridaManager/2.0" forHTTPHeaderField:@"User-Agent"];
+    [request setTimeoutInterval:30];
+
+    __block NSURL *tmpFileURL = nil;
+    __block NSInteger statusCode = 0;
+    __block NSError *resultError = nil;
+
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    config.timeoutIntervalForRequest = 30;
+    config.timeoutIntervalForResource = 300;
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+
+    [[session downloadTaskWithRequest:request completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+        resultError = error;
+        if ([response isKindOfClass:[NSHTTPURLResponse class]])
+            statusCode = ((NSHTTPURLResponse *)response).statusCode;
+
+        if (location && !error) {
+            // Move the temp file to our destination before the completion handler returns
+            // (the system deletes the temp file after this block)
+            [[NSFileManager defaultManager] removeItemAtPath:destPath error:nil];
+            NSError *moveError = nil;
+            if ([[NSFileManager defaultManager] moveItemAtURL:location
+                                                        toURL:[NSURL fileURLWithPath:destPath]
+                                                        error:&moveError]) {
+                tmpFileURL = [NSURL fileURLWithPath:destPath];
+            } else {
+                resultError = moveError;
+            }
+        }
+        dispatch_semaphore_signal(sem);
+    }] resume];
+
+    long waitResult = dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_SEC));
+    [session invalidateAndCancel];
+
+    if (waitResult != 0) {
+        FMLog(@"ERROR: download timed out");
+        return NO;
+    }
+
+    if (resultError) {
+        FMLog(@"ERROR: %@ (code %ld)", resultError.localizedDescription, (long)resultError.code);
+        return NO;
+    }
+
+    if (statusCode >= 400) {
+        FMLog(@"ERROR: HTTP %ld", (long)statusCode);
+        return NO;
+    }
+
+    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:destPath error:nil];
+    FMLog(@"Downloaded: HTTP %ld, %llu bytes on disk", (long)statusCode, [attrs fileSize]);
+    return tmpFileURL != nil;
+}
+
 #pragma mark - Version Fetching (Atom feed)
 
 - (NSArray<NSString *> *)fetchLatestVersions:(NSInteger)limit {
@@ -247,43 +318,71 @@ void FMLog(NSString *format, ...) {
     NSString *downloadURL = [NSString stringWithFormat:
         @"https://github.com/frida/frida/releases/download/%@/%@", version, debName];
 
-    NSInteger statusCode = 0;
-    NSData *debData = [self httpGet:downloadURL statusCode:&statusCode];
+    // Download directly to disk (never load the 15MB+ .deb into memory — avoids jetsam kills)
+    NSString *tmpDeb = @"/var/tmp/fridamgr_download.deb";
+    NSString *tmpExtract = @"/var/tmp/fridamgr_extract";
 
-    if (!debData || debData.length == 0) {
-        FMLog(@"ERROR: Download failed for v%@ (HTTP %ld)", version, (long)statusCode);
-        _downloadStatus = [NSString stringWithFormat:@"Download failed (HTTP %ld)", (long)statusCode];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    [fm removeItemAtPath:tmpDeb error:nil];
+    [fm removeItemAtPath:tmpExtract error:nil];
+
+    BOOL downloaded = [self downloadFileToPath:tmpDeb fromURL:downloadURL];
+    if (!downloaded) {
+        FMLog(@"ERROR: Download failed for v%@", version);
+        _downloadStatus = @"Download failed";
+        [fm removeItemAtPath:tmpDeb error:nil];
         _isDownloading = NO;
         _downloadProgress = -1;
         return NO;
     }
 
     _downloadProgress = 0.5;
-    _downloadStatus = @"Extracting frida-server...";
+    _downloadStatus = @"Extracting...";
 
-    NSData *agentData = nil;
-    NSData *binaryData = [self extractFridaServerFromDeb:debData agentData:&agentData];
-    if (!binaryData || binaryData.length == 0) {
+    FMLog(@"Downloaded .deb to %@ — extracting", tmpDeb);
+
+    // Extract .deb: parse ar headers (memory-mapped, minimal RAM), then use tar to decompress
+    BOOL extracted = [self extractDebAtPath:tmpDeb toDirectory:tmpExtract];
+    if (!extracted) {
+        FMLog(@"ERROR: dpkg-deb extraction failed");
+        [fm removeItemAtPath:tmpDeb error:nil];
+        [fm removeItemAtPath:tmpExtract error:nil];
         _downloadStatus = @"Extraction failed";
         _isDownloading = NO;
         _downloadProgress = -1;
         return NO;
     }
 
-    FMLog(@"Extracted binary: %lu bytes", (unsigned long)binaryData.length);
-    if (agentData) {
-        FMLog(@"Extracted agent: %lu bytes", (unsigned long)agentData.length);
-    }
-
-    _downloadProgress = 0.9;
+    _downloadProgress = 0.7;
     _downloadStatus = @"Installing...";
 
-    BOOL success = [self installBinary:binaryData];
+    // Find frida-server and frida-agent.dylib in the extracted tree
+    NSString *serverPath = [self findFileNamed:@"frida-server" inDirectory:tmpExtract];
+    NSString *agentPath = [self findFileNamed:@"frida-agent.dylib" inDirectory:tmpExtract];
 
-    // Also install frida-agent.dylib if extracted
-    if (success && agentData && agentData.length > 0) {
-        success = [self installAgent:agentData];
+    if (!serverPath) {
+        FMLog(@"ERROR: frida-server not found in extracted .deb");
+        [fm removeItemAtPath:tmpDeb error:nil];
+        [fm removeItemAtPath:tmpExtract error:nil];
+        _downloadStatus = @"Extraction failed — frida-server not found";
+        _isDownloading = NO;
+        _downloadProgress = -1;
+        return NO;
     }
+
+    FMLog(@"Found server: %@", serverPath);
+    if (agentPath) FMLog(@"Found agent: %@", agentPath);
+
+    // Install by moving/copying files directly (never load 15-38MB binaries into memory)
+    BOOL success = [self installFileAtPath:serverPath toPath:kFMManagedBinaryPath];
+
+    if (success && agentPath) {
+        success = [self installFileAtPath:agentPath toPath:kFMManagedAgentPath];
+    }
+
+    // Clean up temp files
+    [fm removeItemAtPath:tmpDeb error:nil];
+    [fm removeItemAtPath:tmpExtract error:nil];
 
     if (success) {
         _downloadProgress = 1.0;
@@ -298,21 +397,36 @@ void FMLog(NSString *format, ...) {
     return success;
 }
 
-#pragma mark - .deb extraction
+#pragma mark - Disk-based .deb extraction (avoids jetsam crashes from in-memory decompression)
 
-- (NSData *)extractFridaServerFromDeb:(NSData *)debData {
-    return [self extractFridaServerFromDeb:debData agentData:nil];
-}
+- (BOOL)extractDebAtPath:(NSString *)debPath toDirectory:(NSString *)outDir {
+    NSFileManager *fileMgr = [NSFileManager defaultManager];
+    [fileMgr createDirectoryAtPath:outDir withIntermediateDirectories:YES attributes:nil error:nil];
 
-- (NSData *)extractFridaServerFromDeb:(NSData *)debData agentData:(NSData **)outAgentData {
+    // Step 1: Memory-map the .deb and extract data.tar.* to a temp file
+    // Memory-mapping avoids loading 15MB+ into RAM (only pages we read get loaded)
+    NSString *arTmp = @"/var/tmp/fridamgr_ar_tmp";
+    [fileMgr removeItemAtPath:arTmp error:nil];
+    [fileMgr createDirectoryAtPath:arTmp withIntermediateDirectories:YES attributes:nil error:nil];
+
+    NSData *debData = [NSData dataWithContentsOfFile:debPath options:NSDataReadingMappedIfSafe error:nil];
+    if (!debData || debData.length < 8) {
+        FMLog(@"ERROR: Failed to mmap .deb");
+        [fileMgr removeItemAtPath:arTmp error:nil];
+        return NO;
+    }
+
     const uint8_t *bytes = debData.bytes;
     size_t len = debData.length;
 
-    if (len < 8 || memcmp(bytes, "!<arch>\n", 8) != 0) {
+    if (memcmp(bytes, "!<arch>\n", 8) != 0) {
         FMLog(@"ERROR: Not a valid ar archive");
-        return nil;
+        [fileMgr removeItemAtPath:arTmp error:nil];
+        return NO;
     }
 
+    // Parse ar headers to find data.tar.* and write it to disk
+    NSString *dataTarPath = nil;
     size_t offset = 8;
     while (offset + 60 <= len) {
         char nameField[17] = {0};
@@ -330,53 +444,203 @@ void FMLog(NSString *format, ...) {
 
         FMLog(@"  ar: '%@' (%zu bytes)", name, memberSize);
 
-        if ([name isEqualToString:@"data.tar.xz"] || [name hasPrefix:@"data.tar"]) {
-            if (dataStart + memberSize <= len) {
-                NSData *dataTarXz = [NSData dataWithBytes:bytes + dataStart length:memberSize];
-                return [self extractFridaServerFromTarXz:dataTarXz agentData:outAgentData];
+        if ([name hasPrefix:@"data.tar"] && dataStart + memberSize <= len) {
+            dataTarPath = [arTmp stringByAppendingPathComponent:name];
+
+            // Write data.tar.* to disk using file handle to avoid memory copy
+            NSFileHandle *fh = nil;
+            [fileMgr createFileAtPath:dataTarPath contents:nil attributes:nil];
+            fh = [NSFileHandle fileHandleForWritingAtPath:dataTarPath];
+            if (!fh) {
+                FMLog(@"ERROR: Cannot create %@", dataTarPath);
+                break;
             }
+
+            // Write in chunks to keep memory low
+            size_t chunkSize = 512 * 1024; // 512KB chunks
+            size_t written = 0;
+            while (written < memberSize) {
+                size_t toWrite = MIN(chunkSize, memberSize - written);
+                NSData *chunk = [NSData dataWithBytesNoCopy:(void *)(bytes + dataStart + written)
+                                                     length:toWrite
+                                               freeWhenDone:NO];
+                [fh writeData:chunk];
+                written += toWrite;
+            }
+            [fh closeFile];
+
+            FMLog(@"Extracted %@ to disk (%zu bytes)", name, memberSize);
+            break;
         }
 
         offset = dataStart + memberSize;
         if (offset % 2 != 0) offset++;
     }
 
-    FMLog(@"ERROR: data.tar not found in .deb");
-    return nil;
-}
+    // Release the memory-mapped .deb
+    debData = nil;
 
-- (NSData *)extractFridaServerFromTarXz:(NSData *)tarXzData {
-    return [self extractFridaServerFromTarXz:tarXzData agentData:nil];
-}
-
-- (NSData *)extractFridaServerFromTarXz:(NSData *)tarXzData agentData:(NSData **)outAgentData {
-    FMLog(@"Decompressing XZ (%lu bytes)...", (unsigned long)tarXzData.length);
-
-    NSData *tarData = [self decompressXZ:tarXzData];
-    if (!tarData) {
-        FMLog(@"ERROR: XZ decompression failed");
-        return nil;
+    if (!dataTarPath) {
+        FMLog(@"ERROR: data.tar.* not found in .deb");
+        [fileMgr removeItemAtPath:arTmp error:nil];
+        return NO;
     }
 
-    FMLog(@"Tar: %lu bytes", (unsigned long)tarData.length);
+    // Step 2: Decompress XZ to tar using Apple's compression framework (streaming to disk)
+    // This avoids needing external xz/tar tools and keeps memory usage minimal
+    NSString *tarPath = nil;
 
-    // Extract both frida-server and frida-agent.dylib
-    if (outAgentData) {
-        *outAgentData = [self extractFileFromTar:tarData named:@"frida-agent.dylib"];
-        if (*outAgentData) {
-            FMLog(@"Extracted frida-agent.dylib: %lu bytes", (unsigned long)(*outAgentData).length);
-        } else {
-            FMLog(@"WARNING: frida-agent.dylib not found in tar");
+    if ([dataTarPath hasSuffix:@".xz"]) {
+        tarPath = [arTmp stringByAppendingPathComponent:@"data.tar"];
+        FMLog(@"Decompressing XZ to disk using compression framework...");
+        if (![self decompressXZFile:dataTarPath toFile:tarPath]) {
+            FMLog(@"ERROR: XZ decompression to disk failed");
+            [fileMgr removeItemAtPath:arTmp error:nil];
+            return NO;
+        }
+        // Remove the compressed file to free disk space
+        [fileMgr removeItemAtPath:dataTarPath error:nil];
+    } else {
+        tarPath = dataTarPath;
+    }
+
+    // Step 3: Parse tar on disk and extract only the files we need (frida-server, frida-agent.dylib)
+    FMLog(@"Parsing tar to extract files...");
+    if (![self extractFilesFromTar:tarPath toDirectory:outDir]) {
+        FMLog(@"ERROR: tar parsing failed");
+        [fileMgr removeItemAtPath:arTmp error:nil];
+        return NO;
+    }
+
+    [fileMgr removeItemAtPath:arTmp error:nil];
+    return YES;
+}
+
+#pragma mark - XZ decompression (streaming to disk)
+
+- (BOOL)decompressXZFile:(NSString *)xzPath toFile:(NSString *)outPath {
+    // Memory-map the XZ file
+    NSData *xzData = [NSData dataWithContentsOfFile:xzPath options:NSDataReadingMappedIfSafe error:nil];
+    if (!xzData || xzData.length < 12) return NO;
+
+    const uint8_t *srcBytes = (const uint8_t *)xzData.bytes;
+
+    // Verify XZ magic
+    if (srcBytes[0] != 0xFD || srcBytes[1] != 0x37 || srcBytes[2] != 0x7A ||
+        srcBytes[3] != 0x58 || srcBytes[4] != 0x5A || srcBytes[5] != 0x00) {
+        FMLog(@"ERROR: Not XZ format");
+        return NO;
+    }
+
+    // Create output file
+    [[NSFileManager defaultManager] createFileAtPath:outPath contents:nil attributes:nil];
+    NSFileHandle *outHandle = [NSFileHandle fileHandleForWritingAtPath:outPath];
+    if (!outHandle) {
+        FMLog(@"ERROR: Cannot create output file %@", outPath);
+        return NO;
+    }
+
+    // Try decompressing with different XZ header offsets
+    NSArray *offsets = @[@(0), @(12)];
+
+    for (NSNumber *offsetNum in offsets) {
+        size_t srcOffset = [offsetNum unsignedLongValue];
+        if (srcOffset >= xzData.length) continue;
+
+        // For offset 12, also try skipping the block header
+        NSMutableArray *tryOffsets = [NSMutableArray arrayWithObject:offsetNum];
+        if (srcOffset == 12 && xzData.length > 16) {
+            uint8_t blockHeaderSizeByte = srcBytes[12];
+            if (blockHeaderSizeByte > 0) {
+                size_t blockHeaderSize = (blockHeaderSizeByte + 1) * 4;
+                size_t dataOffset = 12 + blockHeaderSize;
+                if (dataOffset < xzData.length) {
+                    [tryOffsets addObject:@(dataOffset)];
+                }
+            }
+        }
+
+        for (NSNumber *tryOffset in tryOffsets) {
+            size_t off = [tryOffset unsignedLongValue];
+            [outHandle truncateFileAtOffset:0];
+            [outHandle seekToFileOffset:0];
+
+            if ([self streamDecompress:srcBytes + off
+                               length:xzData.length - off
+                             toHandle:outHandle]) {
+                unsigned long long fileSize = [outHandle seekToEndOfFile];
+                [outHandle closeFile];
+                FMLog(@"Decompressed: %llu bytes on disk", fileSize);
+                return YES;
+            }
         }
     }
 
-    return [self extractFileFromTar:tarData named:@"frida-server"];
+    [outHandle closeFile];
+    [[NSFileManager defaultManager] removeItemAtPath:outPath error:nil];
+    FMLog(@"ERROR: All XZ decompression approaches failed");
+    return NO;
 }
 
-- (NSData *)extractFileFromTar:(NSData *)tarData named:(NSString *)targetName {
+- (BOOL)streamDecompress:(const uint8_t *)src length:(size_t)srcLen toHandle:(NSFileHandle *)outHandle {
+    // Use a small buffer — write to disk frequently to keep memory low
+    size_t bufSize = 256 * 1024; // 256KB buffer
+    uint8_t *buf = malloc(bufSize);
+    if (!buf) return NO;
+
+    compression_stream stream;
+    compression_status status;
+
+    status = compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_LZMA);
+    if (status != COMPRESSION_STATUS_OK) {
+        free(buf);
+        return NO;
+    }
+
+    stream.src_ptr = src;
+    stream.src_size = srcLen;
+    stream.dst_ptr = buf;
+    stream.dst_size = bufSize;
+
+    BOOL success = NO;
+
+    while (1) {
+        status = compression_stream_process(&stream, COMPRESSION_STREAM_FINALIZE);
+
+        size_t produced = stream.dst_ptr - buf;
+        if (produced > 0) {
+            @autoreleasepool {
+                [outHandle writeData:[NSData dataWithBytesNoCopy:buf length:produced freeWhenDone:NO]];
+            }
+            stream.dst_ptr = buf;
+            stream.dst_size = bufSize;
+        }
+
+        if (status == COMPRESSION_STATUS_END) { success = YES; break; }
+        else if (status == COMPRESSION_STATUS_ERROR) break;
+        if (stream.src_size == 0) break;
+    }
+
+    compression_stream_destroy(&stream);
+    free(buf);
+    return success;
+}
+
+#pragma mark - Tar parsing (disk-based, memory-mapped)
+
+- (BOOL)extractFilesFromTar:(NSString *)tarPath toDirectory:(NSString *)outDir {
+    NSData *tarData = [NSData dataWithContentsOfFile:tarPath options:NSDataReadingMappedIfSafe error:nil];
+    if (!tarData || tarData.length < 512) {
+        FMLog(@"ERROR: Cannot mmap tar file");
+        return NO;
+    }
+
     const uint8_t *bytes = tarData.bytes;
     size_t len = tarData.length;
     size_t offset = 0;
+    BOOL foundAny = NO;
+
+    NSSet *targets = [NSSet setWithArray:@[@"frida-server", @"frida-agent.dylib"]];
 
     while (offset + 512 <= len) {
         const char *header = (const char *)(bytes + offset);
@@ -407,11 +671,28 @@ void FMLog(NSString *format, ...) {
 
         if ((typeFlag == '0' || typeFlag == 0) && fileSize > 0) {
             NSString *lastComponent = [entryName lastPathComponent];
-            if ([entryName hasSuffix:targetName] ||
-                [lastComponent isEqualToString:targetName]) {
-                FMLog(@"Found '%@' (%zu bytes)", entryName, fileSize);
-                if (dataOffset + fileSize <= len) {
-                    return [NSData dataWithBytes:bytes + dataOffset length:fileSize];
+            if ([targets containsObject:lastComponent] && dataOffset + fileSize <= len) {
+                // Write this file to the output directory
+                NSString *destPath = [outDir stringByAppendingPathComponent:lastComponent];
+                FMLog(@"Extracting '%@' (%zu bytes)", entryName, fileSize);
+
+                [[NSFileManager defaultManager] createFileAtPath:destPath contents:nil attributes:nil];
+                NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:destPath];
+                if (fh) {
+                    // Write in chunks from memory-mapped data
+                    size_t chunkSize = 512 * 1024;
+                    size_t written = 0;
+                    while (written < fileSize) {
+                        @autoreleasepool {
+                            size_t toWrite = MIN(chunkSize, fileSize - written);
+                            [fh writeData:[NSData dataWithBytesNoCopy:(void *)(bytes + dataOffset + written)
+                                                              length:toWrite
+                                                        freeWhenDone:NO]];
+                            written += toWrite;
+                        }
+                    }
+                    [fh closeFile];
+                    foundAny = YES;
                 }
             }
         }
@@ -420,93 +701,162 @@ void FMLog(NSString *format, ...) {
         offset = dataOffset + (blocks * 512);
     }
 
-    FMLog(@"ERROR: '%@' not found in tar", targetName);
-    return nil;
+    return foundAny;
 }
 
-#pragma mark - XZ Decompression
-
-- (NSData *)decompressXZ:(NSData *)xzData {
-    if (xzData.length < 12) return nil;
-
-    const uint8_t *srcBytes = (const uint8_t *)xzData.bytes;
-
-    if (srcBytes[0] != 0xFD || srcBytes[1] != 0x37 || srcBytes[2] != 0x7A ||
-        srcBytes[3] != 0x58 || srcBytes[4] != 0x5A || srcBytes[5] != 0x00) {
-        FMLog(@"ERROR: Not XZ format");
-        return nil;
-    }
-
-    NSData *result = [self tryDecompress:srcBytes length:xzData.length];
-    if (result) return result;
-
-    if (xzData.length > 24) {
-        result = [self tryDecompress:srcBytes + 12 length:xzData.length - 12];
-        if (result) return result;
-    }
-
-    if (xzData.length > 16) {
-        uint8_t blockHeaderSizeByte = srcBytes[12];
-        if (blockHeaderSizeByte > 0) {
-            size_t blockHeaderSize = (blockHeaderSizeByte + 1) * 4;
-            size_t dataOffset = 12 + blockHeaderSize;
-            if (dataOffset < xzData.length) {
-                result = [self tryDecompress:srcBytes + dataOffset length:xzData.length - dataOffset - 12];
-                if (result) return result;
+- (NSString *)findFileNamed:(NSString *)name inDirectory:(NSString *)dir {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSDirectoryEnumerator *enumerator = [fm enumeratorAtPath:dir];
+    NSString *path;
+    while ((path = [enumerator nextObject])) {
+        if ([[path lastPathComponent] isEqualToString:name]) {
+            NSString *fullPath = [dir stringByAppendingPathComponent:path];
+            BOOL isDir = NO;
+            if ([fm fileExistsAtPath:fullPath isDirectory:&isDir] && !isDir) {
+                return fullPath;
             }
         }
     }
-
-    FMLog(@"ERROR: All XZ approaches failed");
     return nil;
 }
 
-- (NSData *)tryDecompress:(const uint8_t *)src length:(size_t)srcLen {
-    size_t dstCapacity = 8 * 1024 * 1024;
-    uint8_t *dstBuffer = malloc(dstCapacity);
-    if (!dstBuffer) return nil;
+- (NSString *)findToolNamed:(NSString *)name {
+    NSArray *searchPaths = @[
+        [NSString stringWithFormat:@"/usr/bin/%@", name],
+        [NSString stringWithFormat:@"/usr/local/bin/%@", name],
+        [NSString stringWithFormat:@"/bin/%@", name],
+        [NSString stringWithFormat:@"/sbin/%@", name],
+        [NSString stringWithFormat:@"/usr/sbin/%@", name],
+        [NSString stringWithFormat:@"/var/jb/usr/bin/%@", name],
+        [NSString stringWithFormat:@"/var/jb/usr/local/bin/%@", name],
+        [NSString stringWithFormat:@"/var/jb/bin/%@", name],
+    ];
 
-    compression_stream stream;
-    compression_status status;
-
-    status = compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_LZMA);
-    if (status != COMPRESSION_STATUS_OK) {
-        free(dstBuffer);
-        return nil;
-    }
-
-    stream.src_ptr = src;
-    stream.src_size = srcLen;
-    stream.dst_ptr = dstBuffer;
-    stream.dst_size = dstCapacity;
-
-    NSMutableData *output = [NSMutableData data];
-    BOOL success = NO;
-
-    while (1) {
-        status = compression_stream_process(&stream, COMPRESSION_STREAM_FINALIZE);
-
-        size_t produced = stream.dst_ptr - dstBuffer;
-        if (produced > 0) {
-            [output appendBytes:dstBuffer length:produced];
-            stream.dst_ptr = dstBuffer;
-            stream.dst_size = dstCapacity;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *path in searchPaths) {
+        if ([fm isExecutableFileAtPath:path]) {
+            return path;
         }
-
-        if (status == COMPRESSION_STATUS_END) { success = YES; break; }
-        else if (status == COMPRESSION_STATUS_ERROR) break;
-        if (stream.src_size == 0) break;
     }
 
-    compression_stream_destroy(&stream);
-    free(dstBuffer);
+    // Also check the jailbreak root derived from our managed binary path
+    NSString *managed = kFMManagedBinaryPath;
+    NSString *root = [[[managed stringByDeletingLastPathComponent] stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
+    if (root.length > 1) {
+        NSString *path = [NSString stringWithFormat:@"%@/usr/bin/%@", root, name];
+        if ([fm isExecutableFileAtPath:path]) return path;
+        path = [NSString stringWithFormat:@"%@/bin/%@", root, name];
+        if ([fm isExecutableFileAtPath:path]) return path;
+    }
 
-    if (success && output.length > 0) return output;
     return nil;
 }
 
-#pragma mark - Install Binary
+- (int)runTool:(NSString *)tool args:(NSArray<NSString *> *)args {
+    return [self runTool:tool args:args workDir:nil];
+}
 
+- (int)runTool:(NSString *)tool args:(NSArray<NSString *> *)args workDir:(NSString *)workDir {
+    NSMutableString *cmdLog = [NSMutableString stringWithString:tool];
+    for (NSString *a in args) [cmdLog appendFormat:@" %@", a];
+    FMLog(@"Running: %@", cmdLog);
+
+    int argc = (int)args.count + 1;
+    const char **argv = calloc(argc + 1, sizeof(char *));
+    argv[0] = [tool UTF8String];
+    for (int i = 0; i < (int)args.count; i++) {
+        argv[i + 1] = [args[i] UTF8String];
+    }
+    argv[argc] = NULL;
+
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+
+    // Change working directory if specified
+    NSString *origDir = nil;
+    if (workDir) {
+        origDir = [[NSFileManager defaultManager] currentDirectoryPath];
+        [[NSFileManager defaultManager] changeCurrentDirectoryPath:workDir];
+    }
+
+    // Build environment with comprehensive PATH so tools can find each other (xz, gzip, etc.)
+    // The daemon's default environment has a minimal PATH that misses jailbreak paths
+    extern char **environ;
+    NSMutableDictionary *envDict = [NSMutableDictionary dictionary];
+    for (int i = 0; environ[i]; i++) {
+        NSString *entry = [NSString stringWithUTF8String:environ[i]];
+        NSRange eq = [entry rangeOfString:@"="];
+        if (eq.location != NSNotFound) {
+            NSString *key = [entry substringToIndex:eq.location];
+            NSString *val = [entry substringFromIndex:eq.location + 1];
+            envDict[key] = val;
+        }
+    }
+    envDict[@"PATH"] = @"/var/jb/usr/bin:/var/jb/usr/sbin:/var/jb/usr/local/bin:/var/jb/bin:/var/jb/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/bin:/sbin";
+
+    NSMutableArray *envArray = [NSMutableArray array];
+    for (NSString *key in envDict) {
+        [envArray addObject:[NSString stringWithFormat:@"%@=%@", key, envDict[key]]];
+    }
+    const char **envp = calloc(envArray.count + 1, sizeof(char *));
+    for (int i = 0; i < (int)envArray.count; i++) {
+        envp[i] = [envArray[i] UTF8String];
+    }
+    envp[envArray.count] = NULL;
+
+    pid_t pid = 0;
+    int ret = posix_spawn(&pid, [tool UTF8String], &actions, &attr, (char *const *)argv, (char *const *)envp);
+
+    posix_spawn_file_actions_destroy(&actions);
+    posix_spawnattr_destroy(&attr);
+    free(argv);
+    free(envp);
+
+    if (ret != 0) {
+        FMLog(@"spawn failed: %d", ret);
+        if (origDir) [[NSFileManager defaultManager] changeCurrentDirectoryPath:origDir];
+        return -1;
+    }
+
+    int status = 0;
+    waitpid(pid, &status, 0);
+
+    if (origDir) [[NSFileManager defaultManager] changeCurrentDirectoryPath:origDir];
+
+    int exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    FMLog(@"Exit code: %d", exitCode);
+    return exitCode;
+}
+
+#pragma mark - Install (file-based, no memory loading)
+
+- (BOOL)installFileAtPath:(NSString *)srcPath toPath:(NSString *)installPath {
+    NSFileManager *fileMgr = [NSFileManager defaultManager];
+
+    NSString *dir = [installPath stringByDeletingLastPathComponent];
+    [fileMgr createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+
+    // Remove existing file
+    [fileMgr removeItemAtPath:installPath error:nil];
+
+    // Copy file directly — no need to load into memory
+    NSError *error = nil;
+    if (![fileMgr copyItemAtPath:srcPath toPath:installPath error:&error]) {
+        FMLog(@"ERROR: copy failed %@ -> %@: %@", srcPath, installPath, error);
+        return NO;
+    }
+
+    chmod([installPath UTF8String], 0755);
+    chown([installPath UTF8String], 0, 0);
+
+    FMLog(@"Installed %@ to %@", [srcPath lastPathComponent], installPath);
+    return YES;
+}
+
+// Legacy methods kept for compatibility
 - (BOOL)installBinary:(NSData *)binaryData {
     NSString *installPath = kFMManagedBinaryPath;
 

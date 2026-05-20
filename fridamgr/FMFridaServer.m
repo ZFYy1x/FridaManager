@@ -5,6 +5,7 @@
 #import <signal.h>
 #import <sys/wait.h>
 #import <sys/sysctl.h>
+#import <sys/proc.h> // for SZOMB
 
 extern char **environ;
 
@@ -131,7 +132,8 @@ extern char **environ;
     if (sysctl(mib, 4, procs, &size, NULL, 0) == 0) {
         int count = (int)(size / sizeof(struct kinfo_proc));
         for (int i = 0; i < count; i++) {
-            if (strcmp(procs[i].kp_proc.p_comm, "frida-server") == 0) {
+            if (strcmp(procs[i].kp_proc.p_comm, "frida-server") == 0
+                && procs[i].kp_proc.p_stat != SZOMB) {
                 _serverPID = procs[i].kp_proc.p_pid;
                 if (_activePort == 0) _activePort = kFMDefaultPort;
                 break;
@@ -431,8 +433,11 @@ extern char **environ;
         _activePort = 0;
     }
 
-    // Kill any remaining frida-server processes
+    // Kill any remaining frida-server processes and wait for them to die
     [self killAllFridaProcesses];
+    usleep(300000); // 300ms for processes to fully exit
+    _serverPID = 0;
+    _activePort = 0;
     return YES;
 }
 
@@ -456,9 +461,72 @@ extern char **environ;
 }
 
 - (BOOL)restartWithPort:(NSInteger)port listenAddress:(NSString *)address {
-    [self stop];
+    // Don't use [self stop] + [self start] — the zombie process from stop
+    // can trick isRunning into thinking frida is still alive.
+    // Instead: kill everything, then spawn fresh without checking isRunning.
+
+    if (_source == FMFridaSourcePackageManager) {
+        [self bootoutSileoFrida];
+        usleep(500000);
+    }
+
+    if (_serverPID > 0) {
+        kill(_serverPID, SIGTERM);
+        int status;
+        for (int i = 0; i < 5; i++) {
+            pid_t result = waitpid(_serverPID, &status, WNOHANG);
+            if (result == _serverPID || (result == -1 && errno == ECHILD)) break;
+            usleep(100000);
+        }
+        if (kill(_serverPID, 0) == 0) {
+            kill(_serverPID, SIGKILL);
+            waitpid(_serverPID, &status, WNOHANG);
+        }
+    }
+
+    [self killAllFridaProcesses];
     usleep(500000);
-    return [self startWithPort:port listenAddress:address];
+
+    _serverPID = 0;
+    _activePort = 0;
+
+    // Now start fresh
+    _binaryPath = [self detectBinaryPath];
+    if (!_binaryPath) return NO;
+
+    if (_source == FMFridaSourcePackageManager) {
+        [self bootstrapSileoFrida];
+        usleep(500000);
+        [self detectRunningFridaServer];
+        if (_serverPID > 0) {
+            _activePort = port;
+            return YES;
+        }
+        return NO;
+    }
+
+    NSString *listenArg = [NSString stringWithFormat:@"%@:%ld", address, (long)port];
+    const char *argv[] = {
+        [_binaryPath UTF8String],
+        "-l",
+        [listenArg UTF8String],
+        NULL
+    };
+
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP);
+    posix_spawnattr_setpgroup(&attr, 0);
+
+    pid_t pid = 0;
+    int ret = posix_spawn(&pid, argv[0], NULL, &attr, (char *const *)argv, environ);
+    posix_spawnattr_destroy(&attr);
+
+    if (ret != 0) return NO;
+
+    _serverPID = pid;
+    _activePort = port;
+    return YES;
 }
 
 - (NSString *)sourceString {
