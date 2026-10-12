@@ -40,6 +40,10 @@ if [ "$1" = "configure" ] || [ "$1" = "install" ] || [ "$1" = "" ]; then
     else
         launchctl load "$DAEMON_PLIST" 2>/dev/null
     fi
+
+    # Refresh the home-screen icon cache so the new app icon shows up
+    # (covers /Applications and /var/jb/Applications on rootless/roothide).
+    uicache 2>/dev/null || uicache -p /Applications/FridaManager.app 2>/dev/null || true
 fi
 
 exit 0

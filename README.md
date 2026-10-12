@@ -4,6 +4,11 @@
 <h1 align="center">FridaManager</h1>
 <p align="center">A jailbreak tweak for managing <a href="https://frida.re/">frida-server</a> on iOS devices directly from Settings.</p>
 
+> **中文说明（本分支改动）**
+> - **默认编译产物为 Dopamine roothide**：详见下方「Building from Source」与 GitHub Actions 工作流，roothide 为默认构建目标。
+> - **独立 App 入口（全中文）**：除原有的「设置 → Frida 管理器」外，本分支额外提供一个带桌面图标的独立 App（`Frida 管理器`）。点击图标即可直接操作，所有界面均为中文。
+> - 包名 / 描述 / 设置入口名称均已中文化。
+
 ## Features
 
 - **Start / Stop / Restart** frida-server directly from Settings
@@ -85,11 +90,18 @@ See [Building from Source](#building-from-source) below.
 
 ### First Time Setup
 
-1. Open **Settings > FridaManager**
-2. Under **Version Management**, either:
-   - Tap **Browse Latest Versions** to see available releases and tap one to install
-   - Enter a version in **Custom Version** and tap **Install Custom Version**
-3. Once installed, tap **Start Frida Server**
+你有两种入口可以操作 FridaManager（界面均为中文）：
+
+- **独立 App**：主屏上的 **Frida 管理器** 图标，点击即可直接打开操作界面。
+- **设置入口**：打开 **设置 > Frida 管理器**（保留作为备用入口）。
+
+首次使用步骤（任选一个入口）：
+
+1. 打开 **Frida 管理器**（App 或 设置内入口）
+2. 在 **版本管理** 分组中：
+   - 点击 **浏览最新版本**，选择需要的版本后点击安装
+   - 或在 **自定义版本** 中输入版本号（例如 `16.1.4`），再点击 **安装自定义版本**
+3. 安装完成后，点击 **启动 Frida 服务器**
 
 ### Managing frida-server
 
@@ -133,16 +145,22 @@ frida-ps -H 127.0.0.1:<port>
 
 ## Architecture
 
-FridaManager consists of two components:
+FridaManager consists of three components:
 
 ```
-┌─────────────────────────────┐     Unix Socket      ┌──────────────────────────┐
-│  Settings.app (Preferences) │ ◄──────────────────► │   fridamgr (Root Daemon) │
-│  FridaManagerPrefs bundle   │     via libSandy     │   LaunchDaemon (root)    │
-└─────────────────────────────┘                      └──────────────────────────┘
-         UI / User input                              Server management, downloads,
+┌─────────────────────────────┐                       ┌──────────────────────────┐
+│  Settings.app (Preferences) │                       │                          │
+│  FridaManagerPrefs bundle   │ ┐                     │   fridamgr (Root Daemon) │
+├─────────────────────────────┤  ├─ Unix Socket ────► │   LaunchDaemon (root)    │
+│  Frida 管理器 (独立 App)     │ ┘     via libSandy    │                          │
+└─────────────────────────────┘                       └──────────────────────────┘
+       UI / User input (中文)                          Server management, downloads,
                                                       config, process control
 ```
+
+- **Frida 管理器（独立 App）**：主屏图标入口，全中文界面，与设置入口共用同一套 UI 代码与守护进程通信逻辑。
+- **FridaManagerPrefs bundle**：保留在「设置」中的备用入口。
+- **fridamgr（Root Daemon）**：以 root 权限运行，管理 frida-server。
 ## Building from Source
 
 ### Prerequisites
@@ -179,29 +197,47 @@ Make sure the `THEOS` environment variable points to your Theos installation:
 export THEOS=~/theos   # adjust if installed elsewhere
 ```
 
-**Build both rootful and rootless packages:**
+**Build (default = Dopamine roothide, plus rootless & rootful):**
 
 ```bash
 ./build.sh
 ```
 
-**Build rootless only:**
+`build.sh` 默认先构建 **roothide** 产物，并依次构建 rootless、rootful，最终在 `packages/` 下生成带后缀的 deb：
+
+- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64_roothide.deb`
+- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64_rootless.deb`
+- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm_rootful.deb`
+
+**Build a single variant manually:**
 
 ```bash
+# roothide（需要 roothide/theos 分支）
+cp control.roothide control
+make clean
+make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+
+# rootless
 cp control.rootless control
 make clean
 make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-```
 
-**Build rootful only:**
-
-```bash
+# rootful
 cp control.rootful control
 make clean
 make package FINALPACKAGE=1
 ```
 
 Packages are output to the `packages/` directory.
+
+### Build via GitHub Actions
+
+本项目已附带 `.github/workflows/build.yml`：在 `main` 分支推送或打 `v*` 标签时自动用 GitHub  runners 构建三种产物并上传为 Artifacts；打 tag 时自动发布到 Releases。
+
+- **roothide** 使用 `roothide/theos` 分支构建（Dopamine roothide 专用）。
+- **rootless / rootful** 使用官方 `theos/theos` 构建。
+
+> 提示：roothide 构建依赖 `roothide/theos` 以及 App 的 roothide 专属 entitlements（`platform-application` 等），首次运行工作流请留意构建日志。
 
 ### Project Structure
 
@@ -251,6 +287,7 @@ FridaManager/
 
 | Jailbreak Type | Architecture | Status |
 |---------------|-------------|--------|
+| **Roothide** (Dopamine roothide) | `arm64` | 默认构建目标 |
 | **Rootless** (Dopamine, palera1n) | `arm64` | Tested |
 | **Rootful** (unc0ver) | `arm` | Tested |
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Allow the app to talk to the root daemon's libSandy socket -->
+	<key>com.opa334.libsandy.client</key>
+	<array>
+		<string>com.b1tbreaker.fridamanager.socket</string>
+	</array>
+	<!-- Run unsandboxed so the app can reach /var/run/fridamgr.sock -->
+	<key>com.apple.private.security.no-sandbox</key>
+	<true/>
+	<key>get-task-allow</key>
+	<true/>
+	<!-- roothide requirements: declare the app as a platform application so it
+	     launches correctly inside the roothide jailbreak environment. These are
+	     inert on standard rootless/rootful theos builds. -->
+	<key>platform-application</key>
+	<true/>
+	<key>com.apple.private.security.storage.AppBundles</key>
+	<true/>
+	<key>com.apple.private.security.storage.AppDataContainers</key>
+	<true/>
+</dict>
+</plist>

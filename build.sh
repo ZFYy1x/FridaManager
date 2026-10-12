@@ -6,31 +6,53 @@ cd "$SCRIPT_DIR"
 
 echo "=== Building FridaManager ==="
 
-# Build rootful (iphoneos-arm)
+# ---------------------------------------------------------------------------
+# Default build: Dopamine roothide (iphoneos-arm64)
+# ---------------------------------------------------------------------------
 echo ""
-echo "--- Building rootful (iphoneos-arm) ---"
-cp control.rootful control
+echo "--- Building roothide (iphoneos-arm64) [默认] ---"
+cp control.roothide control
 make clean
-make package FINALPACKAGE=1
+make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
 
-# Build rootless (iphoneos-arm64)
+echo ""
+echo "--- Renaming roothide package ---"
+for f in packages/*_iphoneos-arm64.deb; do
+    [ -f "$f" ] && mv "$f" "${f%_iphoneos-arm64.deb}_iphoneos-arm64_roothide.deb"
+done
+
+# ---------------------------------------------------------------------------
+# Rootless (iphoneos-arm64) — Dopamine / palera1n rootless
+# ---------------------------------------------------------------------------
 echo ""
 echo "--- Building rootless (iphoneos-arm64) ---"
 cp control.rootless control
 make clean
 make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
-# Restore rootful control as default
-cp control.rootful control
-
 echo ""
-echo "--- Renaming packages ---"
-for f in packages/*_iphoneos-arm.deb; do
-    [ -f "$f" ] && mv "$f" "${f%_iphoneos-arm.deb}_iphoneos-arm_rootful.deb"
-done
+echo "--- Renaming rootless package ---"
 for f in packages/*_iphoneos-arm64.deb; do
     [ -f "$f" ] && mv "$f" "${f%_iphoneos-arm64.deb}_iphoneos-arm64_rootless.deb"
 done
+
+# ---------------------------------------------------------------------------
+# Rootful (iphoneos-arm) — unc0ver / checkra1n
+# ---------------------------------------------------------------------------
+echo ""
+echo "--- Building rootful (iphoneos-arm) ---"
+cp control.rootful control
+make clean
+make package FINALPACKAGE=1
+
+echo ""
+echo "--- Renaming rootful package ---"
+for f in packages/*_iphoneos-arm.deb; do
+    [ -f "$f" ] && mv "$f" "${f%_iphoneos-arm.deb}_iphoneos-arm_rootful.deb"
+done
+
+# Restore roothide control as the default
+cp control.roothide control
 
 echo ""
 echo "=== Build complete ==="

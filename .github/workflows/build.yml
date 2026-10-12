@@ -1,0 +1,156 @@
+name: Build FridaManager
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Global Theos location shared by every job.
+env:
+  THEOS: ${{ github.workspace }}/theos
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Default build target: Dopamine roothide (iphoneos-arm64)
+  # Requires the roothide/theos fork.
+  # ---------------------------------------------------------------------------
+  build-roothide:
+    name: Build (Dopamine roothide)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies & roothide/theos
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: |
+          brew install ldid dpkg make 2>/dev/null || true
+          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
+
+      - name: Build (roothide)
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: |
+          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          cp control.roothide control
+          make clean
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+
+      - name: Stage artifact
+        run: |
+          mkdir -p out
+          for f in packages/*_iphoneos-arm64.deb; do
+            [ -f "$f" ] && mv "$f" "out/$(basename "${f%_iphoneos-arm64.deb}")_iphoneos-arm64_roothide.deb"
+          done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fridamanager-roothide
+          path: out/*.deb
+
+  # ---------------------------------------------------------------------------
+  # Rootless (iphoneos-arm64) — Dopamine / palera1n rootless
+  # ---------------------------------------------------------------------------
+  build-rootless:
+    name: Build (rootless)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies & theos
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: |
+          brew install ldid dpkg make 2>/dev/null || true
+          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+
+      - name: Build (rootless)
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: |
+          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          cp control.rootless control
+          make clean
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+
+      - name: Stage artifact
+        run: |
+          mkdir -p out
+          for f in packages/*_iphoneos-arm64.deb; do
+            [ -f "$f" ] && mv "$f" "out/$(basename "${f%_iphoneos-arm64.deb}")_iphoneos-arm64_rootless.deb"
+          done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fridamanager-rootless
+          path: out/*.deb
+
+  # ---------------------------------------------------------------------------
+  # Rootful (iphoneos-arm) — unc0ver / checkra1n
+  # ---------------------------------------------------------------------------
+  build-rootful:
+    name: Build (rootful)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies & theos
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: |
+          brew install ldid dpkg make 2>/dev/null || true
+          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+
+      - name: Build (rootful)
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: |
+          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          cp control.rootful control
+          make clean
+          make package FINALPACKAGE=1
+
+      - name: Stage artifact
+        run: |
+          mkdir -p out
+          for f in packages/*_iphoneos-arm.deb; do
+            [ -f "$f" ] && mv "$f" "out/$(basename "${f%_iphoneos-arm.deb}")_iphoneos-arm_rootful.deb"
+          done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fridamanager-rootful
+          path: out/*.deb
+
+  # ---------------------------------------------------------------------------
+  # Release: only when a tag like v1.0.1 is pushed.
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-roothide, build-rootless, build-rootful]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.deb
+          generate_release_notes: true

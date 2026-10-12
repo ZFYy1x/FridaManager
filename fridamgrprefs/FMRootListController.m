@@ -33,11 +33,11 @@
 - (NSArray *)buildSpecifiers {
     NSMutableArray *specs = [NSMutableArray array];
 
-    // === STATUS GROUP ===
-    PSSpecifier *statusGroup = [PSSpecifier groupSpecifierWithName:@"Status"];
+    // === 状态分组 ===
+    PSSpecifier *statusGroup = [PSSpecifier groupSpecifierWithName:@"状态"];
     [specs addObject:statusGroup];
 
-    _statusSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Server Status"
+    _statusSpecifier = [PSSpecifier preferenceSpecifierNamed:@"服务器状态"
                                                      target:self
                                                         set:nil
                                                         get:@selector(getStatusValue:)
@@ -47,7 +47,7 @@
     [_statusSpecifier setProperty:@"serverStatus" forKey:@"key"];
     [specs addObject:_statusSpecifier];
 
-    _portStatusSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Active Port"
+    _portStatusSpecifier = [PSSpecifier preferenceSpecifierNamed:@"活动端口"
                                                          target:self
                                                             set:nil
                                                             get:@selector(getPortStatusValue:)
@@ -57,7 +57,7 @@
     [_portStatusSpecifier setProperty:@"activePort" forKey:@"key"];
     [specs addObject:_portStatusSpecifier];
 
-    _binaryPathSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Binary Path"
+    _binaryPathSpecifier = [PSSpecifier preferenceSpecifierNamed:@"二进制路径"
                                                          target:self
                                                             set:nil
                                                             get:@selector(getBinaryPathValue:)
@@ -67,7 +67,7 @@
     [_binaryPathSpecifier setProperty:@"binaryPath" forKey:@"key"];
     [specs addObject:_binaryPathSpecifier];
 
-    _versionSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Version"
+    _versionSpecifier = [PSSpecifier preferenceSpecifierNamed:@"版本"
                                                       target:self
                                                          set:nil
                                                          get:@selector(getVersionValue:)
@@ -77,7 +77,7 @@
     [_versionSpecifier setProperty:@"version" forKey:@"key"];
     [specs addObject:_versionSpecifier];
 
-    _sourceSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Installed By"
+    _sourceSpecifier = [PSSpecifier preferenceSpecifierNamed:@"安装来源"
                                                       target:self
                                                          set:nil
                                                          get:@selector(getSourceValue:)
@@ -87,12 +87,12 @@
     [_sourceSpecifier setProperty:@"source" forKey:@"key"];
     [specs addObject:_sourceSpecifier];
 
-    // === CONFIGURATION GROUP ===
-    PSSpecifier *configGroup = [PSSpecifier groupSpecifierWithName:@"Configuration"];
-    [configGroup setProperty:@"Changes take effect on next start/restart." forKey:@"footerText"];
+    // === 配置分组 ===
+    PSSpecifier *configGroup = [PSSpecifier groupSpecifierWithName:@"配置"];
+    [configGroup setProperty:@"修改将在下次启动 / 重启时生效。" forKey:@"footerText"];
     [specs addObject:configGroup];
 
-    PSSpecifier *portSpec = [PSSpecifier preferenceSpecifierNamed:@"Port"
+    PSSpecifier *portSpec = [PSSpecifier preferenceSpecifierNamed:@"端口"
                                                           target:self
                                                              set:@selector(setPortValue:specifier:)
                                                              get:@selector(getPortValue:)
@@ -105,7 +105,7 @@
     [portSpec setProperty:@"27042" forKey:@"placeholder"];
     [specs addObject:portSpec];
 
-    PSSpecifier *localhostSpec = [PSSpecifier preferenceSpecifierNamed:@"USB Only (Block Wi-Fi)"
+    PSSpecifier *localhostSpec = [PSSpecifier preferenceSpecifierNamed:@"仅 USB（屏蔽 Wi-Fi）"
                                                                target:self
                                                                   set:@selector(setLocalhostValue:specifier:)
                                                                   get:@selector(getLocalhostValue:)
@@ -116,11 +116,11 @@
     [localhostSpec setProperty:@(YES) forKey:@"default"];
     [specs addObject:localhostSpec];
 
-    // === CONTROLS GROUP ===
-    PSSpecifier *controlGroup = [PSSpecifier groupSpecifierWithName:@"Controls"];
+    // === 控制分组 ===
+    PSSpecifier *controlGroup = [PSSpecifier groupSpecifierWithName:@"控制"];
     [specs addObject:controlGroup];
 
-    PSSpecifier *startSpec = [PSSpecifier preferenceSpecifierNamed:@"Start Frida Server"
+    PSSpecifier *startSpec = [PSSpecifier preferenceSpecifierNamed:@"启动 Frida 服务器"
                                                            target:self
                                                               set:nil
                                                               get:nil
@@ -130,7 +130,7 @@
     startSpec->action = @selector(startServer);
     [specs addObject:startSpec];
 
-    PSSpecifier *stopSpec = [PSSpecifier preferenceSpecifierNamed:@"Stop Frida Server"
+    PSSpecifier *stopSpec = [PSSpecifier preferenceSpecifierNamed:@"停止 Frida 服务器"
                                                           target:self
                                                              set:nil
                                                              get:nil
@@ -140,7 +140,7 @@
     stopSpec->action = @selector(stopServer);
     [specs addObject:stopSpec];
 
-    PSSpecifier *restartSpec = [PSSpecifier preferenceSpecifierNamed:@"Restart Frida Server"
+    PSSpecifier *restartSpec = [PSSpecifier preferenceSpecifierNamed:@"重启 Frida 服务器"
                                                              target:self
                                                                 set:nil
                                                                 get:nil
@@ -150,12 +150,12 @@
     restartSpec->action = @selector(restartServer);
     [specs addObject:restartSpec];
 
-    // === VERSION MANAGEMENT GROUP ===
-    PSSpecifier *versionGroup = [PSSpecifier groupSpecifierWithName:@"Version Management"];
-    [versionGroup setProperty:@"Download and install frida-server directly from GitHub. The server will be stopped during installation." forKey:@"footerText"];
+    // === 版本管理分组 ===
+    PSSpecifier *versionGroup = [PSSpecifier groupSpecifierWithName:@"版本管理"];
+    [versionGroup setProperty:@"直接从 GitHub 下载并安装 frida-server，安装过程中服务器会被停止。" forKey:@"footerText"];
     [specs addObject:versionGroup];
 
-    PSSpecifier *browseSpec = [PSSpecifier preferenceSpecifierNamed:@"Browse Latest Versions"
+    PSSpecifier *browseSpec = [PSSpecifier preferenceSpecifierNamed:@"浏览最新版本"
                                                             target:self
                                                                set:nil
                                                                get:nil
@@ -164,7 +164,7 @@
                                                               edit:nil];
     [specs addObject:browseSpec];
 
-    _customVersionSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Custom Version"
+    _customVersionSpecifier = [PSSpecifier preferenceSpecifierNamed:@"自定义版本"
                                                                    target:self
                                                                       set:@selector(setCustomVersion:specifier:)
                                                                       get:@selector(getCustomVersion:)
@@ -172,10 +172,10 @@
                                                                      cell:PSEditTextCell
                                                                      edit:nil];
     [_customVersionSpecifier setProperty:@"customVersion" forKey:@"key"];
-    [_customVersionSpecifier setProperty:@"e.g. 16.1.4" forKey:@"placeholder"];
+    [_customVersionSpecifier setProperty:@"例如 16.1.4" forKey:@"placeholder"];
     [specs addObject:_customVersionSpecifier];
 
-    PSSpecifier *installCustomSpec = [PSSpecifier preferenceSpecifierNamed:@"Install Custom Version"
+    PSSpecifier *installCustomSpec = [PSSpecifier preferenceSpecifierNamed:@"安装自定义版本"
                                                                    target:self
                                                                       set:nil
                                                                       get:nil
@@ -185,11 +185,11 @@
     installCustomSpec->action = @selector(installCustomVersion);
     [specs addObject:installCustomSpec];
 
-    // === MAINTENANCE GROUP ===
-    PSSpecifier *maintGroup = [PSSpecifier groupSpecifierWithName:@"Maintenance"];
+    // === 维护分组 ===
+    PSSpecifier *maintGroup = [PSSpecifier groupSpecifierWithName:@"维护"];
     [specs addObject:maintGroup];
 
-    PSSpecifier *historySpec = [PSSpecifier preferenceSpecifierNamed:@"Download History"
+    PSSpecifier *historySpec = [PSSpecifier preferenceSpecifierNamed:@"下载历史"
                                                              target:self
                                                                 set:nil
                                                                 get:nil
@@ -198,7 +198,7 @@
                                                                edit:nil];
     [specs addObject:historySpec];
 
-    PSSpecifier *uninstallSpec = [PSSpecifier preferenceSpecifierNamed:@"Uninstall Frida Server"
+    PSSpecifier *uninstallSpec = [PSSpecifier preferenceSpecifierNamed:@"卸载 Frida 服务器"
                                                                target:self
                                                                   set:nil
                                                                   get:nil
@@ -208,7 +208,7 @@
     uninstallSpec->action = @selector(uninstallServer);
     [specs addObject:uninstallSpec];
 
-    PSSpecifier *logSpec = [PSSpecifier preferenceSpecifierNamed:@"View Log"
+    PSSpecifier *logSpec = [PSSpecifier preferenceSpecifierNamed:@"查看日志"
                                                          target:self
                                                             set:nil
                                                             get:nil
@@ -225,12 +225,12 @@
 
 - (id)getStatusValue:(PSSpecifier *)specifier {
     NSDictionary *status = self.cachedStatus;
-    if (!status) return @"Daemon Offline";
-    if ([status[@"stopping"] boolValue]) return @"Stopping...";
+    if (!status) return @"守护进程离线";
+    if ([status[@"stopping"] boolValue]) return @"正在停止…";
     BOOL installed = [status[@"installed"] boolValue];
-    if (!installed) return @"Not Installed";
+    if (!installed) return @"未安装";
     BOOL running = [status[@"running"] boolValue];
-    return running ? @"Running" : @"Stopped";
+    return running ? @"运行中" : @"已停止";
 }
 
 - (id)getPortStatusValue:(PSSpecifier *)specifier {
@@ -242,17 +242,17 @@
 
 - (id)getBinaryPathValue:(PSSpecifier *)specifier {
     NSDictionary *status = self.cachedStatus;
-    if (!status) return @"Unknown";
+    if (!status) return @"未知";
     NSString *path = status[@"binaryPath"];
-    if (!path || [path isEqualToString:@"not found"]) return @"Not Found";
+    if (!path || [path isEqualToString:@"not found"]) return @"未找到";
     return path;
 }
 
 - (id)getVersionValue:(PSSpecifier *)specifier {
     NSDictionary *status = self.cachedStatus;
-    if (!status) return @"Unknown";
+    if (!status) return @"未知";
     NSString *version = status[@"version"];
-    if (!version || [version isEqualToString:@"unknown"]) return @"Unknown";
+    if (!version || [version isEqualToString:@"unknown"]) return @"未知";
     return version;
 }
 
@@ -313,12 +313,12 @@
 - (void)startServer {
     NSDictionary *status = self.cachedStatus;
     if (status && ![status[@"installed"] boolValue]) {
-        [self showAlertWithTitle:@"Not Installed" message:@"No frida-server binary found. Use Version Management to download one."];
+        [self showAlertWithTitle:@"未安装" message:@"未找到 frida-server 二进制文件，请使用「版本管理」下载一个。"];
         return;
     }
     [[FMSocketClient sharedClient] sendCommand:kFMCommandStart completion:^(NSString *response) {
         if (![response hasPrefix:@"OK"]) {
-            [self showAlertWithTitle:@"Error" message:response ?: @"Failed to connect to daemon"];
+            [self showAlertWithTitle:@"错误" message:response ?: @"无法连接到守护进程"];
         }
         [self refreshStatusAsync];
     }];
@@ -327,7 +327,7 @@
 - (void)stopServer {
     [[FMSocketClient sharedClient] sendCommand:kFMCommandStop completion:^(NSString *response) {
         if (![response hasPrefix:@"OK"]) {
-            [self showAlertWithTitle:@"Error" message:response ?: @"Failed to connect to daemon"];
+            [self showAlertWithTitle:@"错误" message:response ?: @"无法连接到守护进程"];
         }
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self refreshStatusAsync];
@@ -338,12 +338,12 @@
 - (void)restartServer {
     NSDictionary *status = self.cachedStatus;
     if (status && ![status[@"installed"] boolValue]) {
-        [self showAlertWithTitle:@"Not Installed" message:@"No frida-server binary found. Use Version Management to download one."];
+        [self showAlertWithTitle:@"未安装" message:@"未找到 frida-server 二进制文件，请使用「版本管理」下载一个。"];
         return;
     }
     [[FMSocketClient sharedClient] sendCommand:kFMCommandRestart completion:^(NSString *response) {
         if (![response hasPrefix:@"OK"]) {
-            [self showAlertWithTitle:@"Error" message:response ?: @"Failed to connect to daemon"];
+            [self showAlertWithTitle:@"错误" message:response ?: @"无法连接到守护进程"];
         }
         [self refreshStatusAsync];
     }];
@@ -352,26 +352,26 @@
 - (void)uninstallServer {
     NSDictionary *status = self.cachedStatus;
     if (status && ![status[@"installed"] boolValue]) {
-        [self showAlertWithTitle:@"Not Installed" message:@"No frida-server binary is installed."];
+        [self showAlertWithTitle:@"未安装" message:@"当前没有安装任何 frida-server。"];
         return;
     }
 
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Uninstall Frida Server"
-                                                                  message:@"This will stop and remove the managed frida-server binary. Are you sure?"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"卸载 Frida 服务器"
+                                                                  message:@"这将停止并删除由本工具管理的 frida-server 二进制文件，确定要继续吗？"
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Uninstall"
+    [alert addAction:[UIAlertAction actionWithTitle:@"卸载"
                                               style:UIAlertActionStyleDestructive
                                             handler:^(UIAlertAction *action) {
         [[FMSocketClient sharedClient] sendCommand:kFMCommandUninstall completion:^(NSString *response) {
             if ([response hasPrefix:@"OK"]) {
-                [self showAlertWithTitle:@"Uninstalled" message:@"frida-server has been removed."];
+                [self showAlertWithTitle:@"已卸载" message:@"frida-server 已移除。"];
             } else {
-                [self showAlertWithTitle:@"Error" message:response ?: @"Failed to uninstall"];
+                [self showAlertWithTitle:@"错误" message:response ?: @"卸载失败"];
             }
             [self refreshStatusAsync];
         }];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消"
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -379,11 +379,11 @@
 
 - (void)viewLog {
     [[FMSocketClient sharedClient] sendCommand:kFMCommandGetLog completion:^(NSString *response) {
-        NSString *log = response ?: @"(unable to read log)";
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Daemon Log"
+        NSString *log = response ?: @"(无法读取日志)";
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"守护进程日志"
                                                                       message:log
                                                                preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+        [alert addAction:[UIAlertAction actionWithTitle:@"确定"
                                                   style:UIAlertActionStyleDefault
                                                 handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
@@ -395,7 +395,7 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         NSString *version = self.pendingCustomVersion;
         if (!version || version.length == 0) {
-            [self showAlertWithTitle:@"Error" message:@"Please enter a version number (e.g. 16.1.4)"];
+            [self showAlertWithTitle:@"错误" message:@"请输入版本号（例如 16.1.4）"];
             return;
         }
         [self confirmAndDownloadVersion:version];
@@ -409,28 +409,28 @@
     NSDictionary *status = self.cachedStatus;
     NSString *source = status[@"source"];
     if ([source isEqualToString:@"Package Manager"]) {
-        [self showAlertWithTitle:@"Cannot Install"
-                         message:@"Frida is currently installed via a package manager (Sileo, Zebra, Cydia, etc.).\n\nPlease uninstall it from your package manager first, then use FridaManager to install the version you want."];
+        [self showAlertWithTitle:@"无法安装"
+                         message:@"Frida 当前是通过包管理器（Sileo、Zebra、Cydia 等）安装的。\n\n请先在包管理器中卸载它，然后再用本工具安装你想要的版本。"];
         return;
     }
 
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Download Frida Server"
-                                                                  message:[NSString stringWithFormat:@"Download and install frida-server v%@?\n\nThe running server will be stopped.", version]
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"下载 Frida 服务器"
+                                                                  message:[NSString stringWithFormat:@"下载并安装 frida-server v%@？\n\n正在运行的服务器将被停止。", version]
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Download"
+    [alert addAction:[UIAlertAction actionWithTitle:@"下载"
                                               style:UIAlertActionStyleDefault
                                             handler:^(UIAlertAction *action) {
         [self beginDownloadVersion:version];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消"
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)beginDownloadVersion:(NSString *)version {
-    UIAlertController *progressAlert = [UIAlertController alertControllerWithTitle:@"Downloading..."
-                                                                          message:[NSString stringWithFormat:@"Installing frida-server v%@\n\nPlease wait...", version]
+    UIAlertController *progressAlert = [UIAlertController alertControllerWithTitle:@"下载中…"
+                                                                          message:[NSString stringWithFormat:@"正在安装 frida-server v%@\n\n请稍候…", version]
                                                                    preferredStyle:UIAlertControllerStyleAlert];
     [self presentViewController:progressAlert animated:YES completion:nil];
 
@@ -438,12 +438,12 @@
         NSString *cmd = [NSString stringWithFormat:@"%@:%@", kFMCommandDownload, version];
         [[FMSocketClient sharedClient] sendCommand:cmd completion:^(NSString *response) {
             if (![response hasPrefix:@"OK"]) {
-                NSString *errMsg = response ?: @"Failed to start download";
+                NSString *errMsg = response ?: @"无法开始下载";
                 if ([response containsString:@"PKGMGR"]) {
-                    errMsg = @"Frida is installed via a package manager. Please uninstall it from your package manager first.";
+                    errMsg = @"Frida 是通过包管理器安装的，请先在包管理器中卸载。";
                 }
                 [progressAlert dismissViewControllerAnimated:YES completion:^{
-                    [self showAlertWithTitle:@"Error" message:errMsg];
+                    [self showAlertWithTitle:@"错误" message:errMsg];
                 }];
                 return;
             }
@@ -458,15 +458,15 @@
                     BOOL downloading = [progress[@"downloading"] boolValue];
                     NSString *status = progress[@"status"];
 
-                    progressAlert.message = [NSString stringWithFormat:@"Installing frida-server v%@\n\n%@", version, status];
+                    progressAlert.message = [NSString stringWithFormat:@"正在安装 frida-server v%@\n\n%@", version, status];
 
                     if (!downloading) {
                         [pollTimer invalidate];
                         [progressAlert dismissViewControllerAnimated:YES completion:^{
                             if ([status hasPrefix:@"Installed"]) {
-                                [self showAlertWithTitle:@"Success" message:[NSString stringWithFormat:@"frida-server v%@ installed successfully!", version]];
+                                [self showAlertWithTitle:@"成功" message:[NSString stringWithFormat:@"frida-server v%@ 安装成功！", version]];
                             } else if (![status isEqualToString:@"Idle"]) {
-                                [self showAlertWithTitle:@"Failed" message:status];
+                                [self showAlertWithTitle:@"失败" message:status];
                             }
                             [self refreshStatusAsync];
                         }];
@@ -510,17 +510,17 @@
 #pragma mark - Helpers
 
 - (void)promptRestartForPortChange {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Port Changed"
-                                                                  message:@"Restart frida-server now with the new port?"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"端口已更改"
+                                                                  message:@"是否立即以新端口重启 frida-server？"
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Restart Now"
+    [alert addAction:[UIAlertAction actionWithTitle:@"立即重启"
                                               style:UIAlertActionStyleDefault
                                             handler:^(UIAlertAction *action) {
         [[FMSocketClient sharedClient] sendCommand:kFMCommandRestart completion:^(NSString *resp) {
             [self refreshStatusAsync];
         }];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Later"
+    [alert addAction:[UIAlertAction actionWithTitle:@"稍后"
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -530,7 +530,7 @@
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                   message:message
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+    [alert addAction:[UIAlertAction actionWithTitle:@"确定"
                                               style:UIAlertActionStyleDefault
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -570,8 +570,8 @@
 - (NSArray *)specifiers {
     if (!_specifiers) {
         NSMutableArray *specs = [NSMutableArray array];
-        PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Latest Versions"];
-        [group setProperty:@"Fetching from GitHub..." forKey:@"footerText"];
+        PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"最新版本"];
+        [group setProperty:@"正在从 GitHub 获取…" forKey:@"footerText"];
         [specs addObject:group];
         _specifiers = specs;
 
@@ -593,7 +593,7 @@
 
     [[FMSocketClient sharedClient] sendCommand:kFMCommandListVersions completion:^(NSString *response) {
         if (!response) {
-            [self updateWithVersions:nil error:@"Failed to connect to daemon."];
+            [self updateWithVersions:nil error:@"无法连接到守护进程。"];
             return;
         }
 
@@ -605,7 +605,7 @@
                     [self fetchVersions];
                 });
             } else {
-                [self updateWithVersions:nil error:@"Timed out. Check View Log."];
+                [self updateWithVersions:nil error:@"超时，请查看日志。"];
             }
             return;
         }
@@ -620,17 +620,17 @@
         if ([versions isKindOfClass:[NSArray class]] && versions.count > 0) {
             [self updateWithVersions:versions error:nil];
         } else {
-            [self updateWithVersions:nil error:@"No versions found. Check View Log."];
+            [self updateWithVersions:nil error:@"未找到任何版本，请查看日志。"];
         }
     }];
 }
 
 - (void)updateWithVersions:(NSArray *)versions error:(NSString *)error {
     NSMutableArray *specs = [NSMutableArray array];
-    PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Latest Versions"];
+    PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"最新版本"];
 
     if (versions && versions.count > 0) {
-        [group setProperty:@"Tap a version to download and install." forKey:@"footerText"];
+        [group setProperty:@"点击某个版本即可下载并安装。" forKey:@"footerText"];
         [specs addObject:group];
 
         for (id item in versions) {
@@ -651,10 +651,10 @@
             [specs addObject:spec];
         }
     } else {
-        [group setProperty:(error ?: @"Failed to fetch versions.") forKey:@"footerText"];
+        [group setProperty:(error ?: @"获取版本失败。") forKey:@"footerText"];
         [specs addObject:group];
 
-        PSSpecifier *retrySpec = [PSSpecifier preferenceSpecifierNamed:@"Retry"
+        PSSpecifier *retrySpec = [PSSpecifier preferenceSpecifierNamed:@"重试"
                                                                target:self
                                                                   set:nil
                                                                   get:nil
@@ -685,8 +685,8 @@
 
     // Reset specifiers to loading state
     NSMutableArray *specs = [NSMutableArray array];
-    PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Latest Versions"];
-    [group setProperty:@"Fetching from GitHub..." forKey:@"footerText"];
+    PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"最新版本"];
+    [group setProperty:@"正在从 GitHub 获取…" forKey:@"footerText"];
     [specs addObject:group];
 
     NSInteger oldCount = (NSInteger)_specifiers.count;
@@ -714,20 +714,20 @@
         }
         NSString *source = status[@"source"];
         if ([source isEqualToString:@"Package Manager"]) {
-            [self showAlertWithTitle:@"Cannot Install"
-                             message:@"Frida is currently installed via a package manager (Sileo, Zebra, Cydia, etc.).\n\nPlease uninstall it from your package manager first, then use FridaManager to install the version you want."];
+            [self showAlertWithTitle:@"无法安装"
+                             message:@"Frida 当前是通过包管理器（Sileo、Zebra、Cydia 等）安装的。\n\n请先在包管理器中卸载它，然后再用本工具安装你想要的版本。"];
             return;
         }
 
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Download Frida Server"
-                                                                      message:[NSString stringWithFormat:@"Download and install frida-server v%@?\n\nThe running server will be stopped.", version]
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"下载 Frida 服务器"
+                                                                      message:[NSString stringWithFormat:@"下载并安装 frida-server v%@？\n\n正在运行的服务器将被停止。", version]
                                                                preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Download"
+        [alert addAction:[UIAlertAction actionWithTitle:@"下载"
                                                   style:UIAlertActionStyleDefault
                                                 handler:^(UIAlertAction *action) {
             [self beginDownloadVersion:version];
         }]];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+        [alert addAction:[UIAlertAction actionWithTitle:@"取消"
                                                   style:UIAlertActionStyleCancel
                                                 handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
@@ -735,8 +735,8 @@
 }
 
 - (void)beginDownloadVersion:(NSString *)version {
-    UIAlertController *progressAlert = [UIAlertController alertControllerWithTitle:@"Downloading..."
-                                                                          message:[NSString stringWithFormat:@"Installing frida-server v%@\n\nPlease wait...", version]
+    UIAlertController *progressAlert = [UIAlertController alertControllerWithTitle:@"下载中…"
+                                                                          message:[NSString stringWithFormat:@"正在安装 frida-server v%@\n\n请稍候…", version]
                                                                    preferredStyle:UIAlertControllerStyleAlert];
     [self presentViewController:progressAlert animated:YES completion:nil];
 
@@ -744,12 +744,12 @@
         NSString *cmd = [NSString stringWithFormat:@"%@:%@", kFMCommandDownload, version];
         [[FMSocketClient sharedClient] sendCommand:cmd completion:^(NSString *response) {
             if (![response hasPrefix:@"OK"]) {
-                NSString *errMsg = response ?: @"Failed to start download";
+                NSString *errMsg = response ?: @"无法开始下载";
                 if ([response containsString:@"PKGMGR"]) {
-                    errMsg = @"Frida is installed via a package manager. Please uninstall it from your package manager first.";
+                    errMsg = @"Frida 是通过包管理器安装的，请先在包管理器中卸载。";
                 }
                 [progressAlert dismissViewControllerAnimated:YES completion:^{
-                    [self showAlertWithTitle:@"Error" message:errMsg];
+                    [self showAlertWithTitle:@"错误" message:errMsg];
                 }];
                 return;
             }
@@ -764,15 +764,15 @@
                     BOOL downloading = [progress[@"downloading"] boolValue];
                     NSString *status = progress[@"status"];
 
-                    progressAlert.message = [NSString stringWithFormat:@"Installing frida-server v%@\n\n%@", version, status];
+                    progressAlert.message = [NSString stringWithFormat:@"正在安装 frida-server v%@\n\n%@", version, status];
 
                     if (!downloading) {
                         [pollTimer invalidate];
                         [progressAlert dismissViewControllerAnimated:YES completion:^{
                             if ([status hasPrefix:@"Installed"]) {
-                                [self showAlertWithTitle:@"Success" message:[NSString stringWithFormat:@"frida-server v%@ installed successfully!", version]];
+                                [self showAlertWithTitle:@"成功" message:[NSString stringWithFormat:@"frida-server v%@ 安装成功！", version]];
                             } else if (![status isEqualToString:@"Idle"]) {
-                                [self showAlertWithTitle:@"Failed" message:status];
+                                [self showAlertWithTitle:@"失败" message:status];
                             }
                         }];
                     }
@@ -786,14 +786,14 @@
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                   message:message
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+    [alert addAction:[UIAlertAction actionWithTitle:@"确定"
                                               style:UIAlertActionStyleDefault
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (NSString *)title {
-    return @"Latest Versions";
+    return @"最新版本";
 }
 
 @end
@@ -819,8 +819,8 @@
 
 - (NSArray *)buildEmptySpecifiers {
     NSMutableArray *specs = [NSMutableArray array];
-    PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Downloaded Versions"];
-    [group setProperty:@"Loading..." forKey:@"footerText"];
+    PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"已下载版本"];
+    [group setProperty:@"加载中…" forKey:@"footerText"];
     [specs addObject:group];
     return specs;
 }
@@ -849,8 +849,8 @@
     NSInteger insertIdx = 0;
 
     if (history.count > 0) {
-        PSSpecifier *histGroup = [PSSpecifier groupSpecifierWithName:@"Downloaded Versions"];
-        [histGroup setProperty:[NSString stringWithFormat:@"%lu version(s) downloaded.", (unsigned long)history.count] forKey:@"footerText"];
+        PSSpecifier *histGroup = [PSSpecifier groupSpecifierWithName:@"已下载版本"];
+        [histGroup setProperty:[NSString stringWithFormat:@"已下载 %lu 个版本。", (unsigned long)history.count] forKey:@"footerText"];
         [self insertSpecifier:histGroup atIndex:insertIdx++ animated:NO];
 
         for (NSDictionary *entry in history) {
@@ -871,7 +871,7 @@
         PSSpecifier *clearGroup = [PSSpecifier groupSpecifierWithName:nil];
         [self insertSpecifier:clearGroup atIndex:insertIdx++ animated:NO];
 
-        PSSpecifier *clearSpec = [PSSpecifier preferenceSpecifierNamed:@"Clear History"
+        PSSpecifier *clearSpec = [PSSpecifier preferenceSpecifierNamed:@"清除历史"
                                                                target:self
                                                                   set:nil
                                                                   get:nil
@@ -881,8 +881,8 @@
         clearSpec->action = @selector(clearHistory);
         [self insertSpecifier:clearSpec atIndex:insertIdx++ animated:NO];
     } else {
-        PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Downloaded Versions"];
-        [group setProperty:@"No downloads yet." forKey:@"footerText"];
+        PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"已下载版本"];
+        [group setProperty:@"暂无下载记录。" forKey:@"footerText"];
         [self insertSpecifier:group atIndex:insertIdx animated:NO];
     }
 }
@@ -892,10 +892,10 @@
 }
 
 - (void)clearHistory {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Clear History"
-                                                                  message:@"Remove all download history entries?"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"清除历史"
+                                                                  message:@"确定要删除所有下载历史记录吗？"
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Clear"
+    [alert addAction:[UIAlertAction actionWithTitle:@"清除"
                                               style:UIAlertActionStyleDestructive
                                             handler:^(UIAlertAction *action) {
         [[FMSocketClient sharedClient] sendCommand:kFMCommandClearHistory completion:^(NSString *response) {
@@ -904,14 +904,14 @@
             });
         }];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消"
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (NSString *)title {
-    return @"Download History";
+    return @"下载历史";
 }
 
 @end
