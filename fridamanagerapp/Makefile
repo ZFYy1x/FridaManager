@@ -13,7 +13,9 @@ FridaManager_CFLAGS = -fobjc-arc -I../fridamgr -I../fridamgrprefs
 FridaManager_FRAMEWORKS = UIKit Foundation
 FridaManager_PRIVATE_FRAMEWORKS = Preferences
 FridaManager_LDFLAGS = -F$(THEOS_PROJECT_DIR)/vendor
-FridaManager_RESOURCES = icon.png icon@2x.png icon@3x.png
+# 注意：Theos bundle.mk 读取的是 xxx_RESOURCE_FILES（或 xxx_BUNDLE_RESOURCES），
+# 写错成 xxx_RESOURCES 会导致图标与 Info.plist 都不进 .app，App 无法注册到主屏。
+FridaManager_RESOURCE_FILES = Info.plist icon.png icon@2x.png icon@3x.png
 FridaManager_CODESIGN_FLAGS = -Sentitlements.plist
 FridaManager_INSTALL_PATH = /Applications
 
