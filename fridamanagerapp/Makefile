@@ -8,8 +8,7 @@ FridaManager_FILES = main.m \
 	../fridamgrprefs/FMRootListController.m \
 	../fridamgrprefs/FMSocketClient.m
 
-FridaManager_CFLAGS = -fobjc-arc -I../fridamgr -I../fridamgrprefs \
-	-fno-ptrauth-objc-class-ro -fno-ptrauth-objc-interface-sel
+FridaManager_CFLAGS = -fobjc-arc -I../fridamgr -I../fridamgrprefs
 
 FridaManager_FRAMEWORKS = UIKit Foundation
 FridaManager_PRIVATE_FRAMEWORKS = Preferences
