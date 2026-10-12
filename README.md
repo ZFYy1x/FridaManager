@@ -173,7 +173,7 @@ FridaManager consists of three components:
    ```
    By default, Theos installs to `~/theos`. See the [Theos installation guide](https://theos.dev/docs/installation) for details.
 
-3. **iOS SDK** — Theos will prompt you to install one during setup. SDK 15.6 or later is required. If you need to install one manually:
+3. **iOS SDK** — Theos will install the latest bundled SDK during setup (no specific version pin; the project's `TARGET` uses `latest`). If you need to install one manually:
    ```bash
    $THEOS/bin/get-sdks
    ```
