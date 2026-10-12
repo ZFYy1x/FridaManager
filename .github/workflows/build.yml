@@ -1,4 +1,4 @@
-name: Build FridaManager
+name: Build FridaManager (roothide)
 
 on:
   push:
@@ -8,34 +8,31 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Global Theos location shared by every job.
-env:
-  THEOS: ${{ github.workspace }}/theos
-
 jobs:
-  # ---------------------------------------------------------------------------
-  # Default build target: Dopamine roothide (iphoneos-arm64)
-  # Requires the roothide/theos fork.
-  # ---------------------------------------------------------------------------
+  # Default (and only) build target: Dopamine roothide (iphoneos-arm64).
+  # Built on Linux the same way as the other roothide plugins: roothide/theos
+  # install-theos fetches the patched SDK (which includes the private framework
+  # stubs such as Preferences.tbd), so no Xcode / private-framework headaches.
   build-roothide:
     name: Build (Dopamine roothide)
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies & roothide/theos
-        env:
-          THEOS: ${{ github.workspace }}/theos
+      - name: Install dependencies
         run: |
-          brew install ldid dpkg make 2>/dev/null || true
-          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
+          sudo apt-get update
+          sudo apt-get install -y build-essential dpkg-dev debhelper fakeroot \
+            clang lld make git perl curl
+
+      - name: Install roothide/theos
+        run: |
           bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+          echo "$HOME/theos/bin" >> "$GITHUB_PATH"
 
       - name: Build (roothide)
-        env:
-          THEOS: ${{ github.workspace }}/theos
         run: |
-          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
           cp control.roothide control
           make clean
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
@@ -43,9 +40,7 @@ jobs:
       - name: Stage artifact
         run: |
           mkdir -p out
-          for f in packages/*_iphoneos-arm64.deb; do
-            [ -f "$f" ] && mv "$f" "out/$(basename "${f%_iphoneos-arm64.deb}")_iphoneos-arm64_roothide.deb"
-          done
+          mv packages/*.deb out/ 2>/dev/null || true
           ls -la out
 
       - uses: actions/upload-artifact@v4
@@ -53,103 +48,19 @@ jobs:
           name: fridamanager-roothide
           path: out/*.deb
 
-  # ---------------------------------------------------------------------------
-  # Rootless (iphoneos-arm64) — Dopamine / palera1n rootless
-  # ---------------------------------------------------------------------------
-  build-rootless:
-    name: Build (rootless)
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies & theos
-        env:
-          THEOS: ${{ github.workspace }}/theos
-        run: |
-          brew install ldid dpkg make 2>/dev/null || true
-          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
-
-      - name: Build (rootless)
-        env:
-          THEOS: ${{ github.workspace }}/theos
-        run: |
-          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
-          cp control.rootless control
-          make clean
-          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-
-      - name: Stage artifact
-        run: |
-          mkdir -p out
-          for f in packages/*_iphoneos-arm64.deb; do
-            [ -f "$f" ] && mv "$f" "out/$(basename "${f%_iphoneos-arm64.deb}")_iphoneos-arm64_rootless.deb"
-          done
-          ls -la out
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: fridamanager-rootless
-          path: out/*.deb
-
-  # ---------------------------------------------------------------------------
-  # Rootful (iphoneos-arm) — unc0ver / checkra1n
-  # ---------------------------------------------------------------------------
-  build-rootful:
-    name: Build (rootful)
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies & theos
-        env:
-          THEOS: ${{ github.workspace }}/theos
-        run: |
-          brew install ldid dpkg make 2>/dev/null || true
-          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
-
-      - name: Build (rootful)
-        env:
-          THEOS: ${{ github.workspace }}/theos
-        run: |
-          export PATH="/usr/local/opt/make/libexec/gnubin:$PATH"
-          cp control.rootful control
-          make clean
-          make package FINALPACKAGE=1
-
-      - name: Stage artifact
-        run: |
-          mkdir -p out
-          for f in packages/*_iphoneos-arm.deb; do
-            [ -f "$f" ] && mv "$f" "out/$(basename "${f%_iphoneos-arm.deb}")_iphoneos-arm_rootful.deb"
-          done
-          ls -la out
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: fridamanager-rootful
-          path: out/*.deb
-
-  # ---------------------------------------------------------------------------
-  # Release: only when a tag like v1.0.1 is pushed.
-  # ---------------------------------------------------------------------------
+  # Release only when a tag like v1.0.1 is pushed.
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-roothide, build-rootless, build-rootful]
+    needs: [build-roothide]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
+          name: fridamanager-roothide
           path: artifacts
-          merge-multiple: true
-
-      - name: List artifacts
-        run: ls -la artifacts
-
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*.deb

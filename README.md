@@ -165,11 +165,11 @@ FridaManager consists of three components:
 
 ### Prerequisites
 
-1. **macOS**
+1. **A build machine (macOS or Linux)**
 
-2. **Theos** — the jailbreak development toolkit:
+2. **Theos (roothide fork)** — the jailbreak development toolkit, **roothide/theos** branch is required for roothide builds:
    ```bash
-   bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+   bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
    ```
    By default, Theos installs to `~/theos`. See the [Theos installation guide](https://theos.dev/docs/installation) for details.
 
@@ -197,47 +197,33 @@ Make sure the `THEOS` environment variable points to your Theos installation:
 export THEOS=~/theos   # adjust if installed elsewhere
 ```
 
-**Build (default = Dopamine roothide, plus rootless & rootful):**
+**Build (Dopamine roothide only):**
 
 ```bash
 ./build.sh
 ```
 
-`build.sh` 默认先构建 **roothide** 产物，并依次构建 rootless、rootful，最终在 `packages/` 下生成带后缀的 deb：
+`build.sh` 使用 `roothide/theos` 构建 **roothide** 产物，在 `packages/` 下生成：
 
-- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64_roothide.deb`
-- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64_rootless.deb`
-- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm_rootful.deb`
+- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64.deb`
 
-**Build a single variant manually:**
+**Build manually:**
 
 ```bash
 # roothide（需要 roothide/theos 分支）
 cp control.roothide control
 make clean
 make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
-
-# rootless
-cp control.rootless control
-make clean
-make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-
-# rootful
-cp control.rootful control
-make clean
-make package FINALPACKAGE=1
 ```
 
 Packages are output to the `packages/` directory.
 
 ### Build via GitHub Actions
 
-本项目已附带 `.github/workflows/build.yml`：在 `main` 分支推送或打 `v*` 标签时自动用 GitHub  runners 构建三种产物并上传为 Artifacts；打 tag 时自动发布到 Releases。
+本项目已附带 `.github/workflows/build.yml`：在 `main` 分支推送或打 `v*` 标签时，在 **Ubuntu** runner 上用 `roothide/theos` 构建 **roothide** 产物并上传为 Artifact；打 `v*` tag 时自动发布到 Releases。
 
-- **roothide** 使用 `roothide/theos` 分支构建（Dopamine roothide 专用）。
-- **rootless / rootful** 使用官方 `theos/theos` 构建。
-
-> 提示：roothide 构建依赖 `roothide/theos` 以及 App 的 roothide 专属 entitlements（`platform-application` 等），首次运行工作流请留意构建日志。
+- 构建环境为 Linux（无 Xcode），`install-theos` 会拉取带私有框架 stub 的补丁 SDK，因此无需担心 macOS 上 Xcode 高版本 SDK 抢占 `latest`、导致私有框架（如 `Preferences`）链接失败的问题。
+- App 使用 roothide 专属 entitlements（`platform-application` 等），位于 `fridamanagerapp/entitlements.plist`。
 
 ### Project Structure
 

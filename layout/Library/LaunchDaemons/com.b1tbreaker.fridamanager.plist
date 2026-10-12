@@ -6,7 +6,7 @@
 	<string>com.b1tbreaker.fridamanager</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/fridamgr</string>
+		<string>/var/jb/usr/local/bin/fridamgr</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
