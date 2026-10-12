@@ -38,11 +38,15 @@
 #define kFMCommandGetHistory @"GETHISTORY"
 #define kFMCommandClearHistory @"CLEARHISTORY"
 
-// Managed binary install path (our own copy, separate from Sileo's)
-#define kFMManagedBinaryPath ROOT_PATH_NS(@"/usr/local/bin/frida-server")
+// Managed binary install path. frida-ios-stealth (our frida source) installs the
+// server at /usr/sbin, and its server resolves the agent via ../lib/frida-1.0, so
+// we keep our own copy at the same place to stay consistent.
+#define kFMManagedBinaryPath ROOT_PATH_NS(@"/usr/sbin/frida-server")
 
-// Managed agent dylib install path (needed for spawn/inject)
-#define kFMManagedAgentPath ROOT_PATH_NS(@"/usr/lib/frida/frida-agent.dylib")
+// Managed agent dylib install path (needed for spawn/inject).
+// frida-ios-stealth's server looks for the agent at ../lib/frida-1.0 relative to
+// its own dir, i.e. /usr/lib/frida-1.0/frida-agent.dylib — NOT /usr/lib/frida.
+#define kFMManagedAgentPath ROOT_PATH_NS(@"/usr/lib/frida-1.0/frida-agent.dylib")
 
 // Sileo LaunchDaemon label
 #define kFMSileoFridaLabel @"re.frida.server"
@@ -55,8 +59,8 @@
     ROOT_PATH_NS(@"/usr/local/bin/frida-server") \
 ]
 
-// GitHub Atom feed (lightweight, no API rate limit)
-#define kFMGitHubAtomURL @"https://github.com/frida/frida/releases.atom"
+// GitHub Atom feed (lightweight, no API rate limit) — our roothide stealth frida fork
+#define kFMGitHubAtomURL @"https://github.com/ZFYy1x/frida-ios-stealth/releases.atom"
 #define kFMGitHubReleasesPerPage 100
 
 // Log file path

@@ -314,9 +314,16 @@ void FMLog(NSString *format, ...) {
     _downloadProgress = 0;
     _downloadStatus = @"Downloading .deb...";
 
-    NSString *debName = [NSString stringWithFormat:@"frida_%@_iphoneos-arm64.deb", version];
+    // Pull from our roothide stealth frida fork (ZFYy1x/frida-ios-stealth).
+    // It ships two debs: ..._iphoneos-arm64e.deb (rootless /var/jb) and
+    // ..._iphoneos-arm64e-roothide.deb (roothide Dopamine). We install the roothide one.
+    // The release tag is "vX.Y.Z" but the feed gives us the bare "X.Y.Z"; the
+    // download path needs the "v" prefix while the filename uses the bare version.
+    NSString *debVer = [version hasPrefix:@"v"] ? [version substringFromIndex:1] : version;
+    NSString *tag = [@"v" stringByAppendingString:debVer];
+    NSString *debName = [NSString stringWithFormat:@"frida_%@_iphoneos-arm64e-roothide.deb", debVer];
     NSString *downloadURL = [NSString stringWithFormat:
-        @"https://github.com/frida/frida/releases/download/%@/%@", version, debName];
+        @"https://github.com/ZFYy1x/frida-ios-stealth/releases/download/%@/%@", tag, debName];
 
     // Download directly to disk (never load the 15MB+ .deb into memory — avoids jetsam kills)
     NSString *tmpDeb = @"/var/tmp/fridamgr_download.deb";
