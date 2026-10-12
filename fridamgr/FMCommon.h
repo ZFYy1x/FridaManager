@@ -1,7 +1,13 @@
 #ifndef FMCOMMON_H
 #define FMCOMMON_H
 
-#import <rootless.h>
+#import <Foundation/Foundation.h>
+
+// Dopamine 2 (roothide) jailbreak root is /var/jb. We define ROOT_PATH_NS locally
+// instead of relying on external libroot/libroothide so the package links cleanly
+// under roothide/theos. Adjacent NSString literals are concatenated at compile time,
+// which keeps these usable in file-scope constant initializers.
+#define ROOT_PATH_NS(path) (@"/var/jb" path)
 
 #define kFMPreferencesPlistPath @"/var/mobile/Library/Preferences/com.b1tbreaker.fridamanager.plist"
 #define kFMSocketPath @"/var/run/fridamgr.sock"

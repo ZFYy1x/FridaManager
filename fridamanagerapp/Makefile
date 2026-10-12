@@ -13,7 +13,7 @@ FridaManager_CFLAGS = -fobjc-arc -I../fridamgr -I../fridamgrprefs \
 
 FridaManager_FRAMEWORKS = UIKit Foundation
 FridaManager_PRIVATE_FRAMEWORKS = Preferences
-FridaManager_LDFLAGS = -lroot -F$(THEOS_PROJECT_DIR)/vendor
+FridaManager_LDFLAGS = -F$(THEOS_PROJECT_DIR)/vendor
 FridaManager_RESOURCES = icon.png icon@2x.png icon@3x.png
 FridaManager_CODESIGN_FLAGS = -Sentitlements.plist
 FridaManager_INSTALL_PATH = /Applications

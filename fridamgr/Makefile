@@ -5,7 +5,7 @@ TOOL_NAME = fridamgr
 fridamgr_FILES = main.m FMDaemon.m FMFridaServer.m FMSocketServer.m FMConfig.m FMDownloadManager.m
 fridamgr_CFLAGS = -fobjc-arc
 fridamgr_FRAMEWORKS = Foundation
-fridamgr_LDFLAGS = -lroot -lcompression
+fridamgr_LDFLAGS = -lcompression
 
 fridamgr_CODESIGN_FLAGS = -Sentitlements.plist
 fridamgr_INSTALL_PATH = /usr/local/bin
