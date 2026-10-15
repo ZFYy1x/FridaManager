@@ -2,16 +2,16 @@
   <img src="fridamgrprefs/Resources/icon@3x.png" width="140" alt="FridaManager icon">
 </p>
 <h1 align="center">FridaManager</h1>
-<p align="center">A jailbreak tweak for managing <a href="https://frida.re/">frida-server</a> on iOS devices directly from Settings.</p>
+<p align="center">A jailbreak tool for managing <a href="https://frida.re/">frida-server</a> on iOS devices directly from a standalone app.</p>
 
 > **中文说明（本分支改动）**
 > - **默认编译产物为 Dopamine roothide**：详见下方「Building from Source」与 GitHub Actions 工作流，roothide 为默认构建目标。
-> - **独立 App 入口（全中文）**：除原有的「设置 → Frida 管理器」外，本分支额外提供一个带桌面图标的独立 App（`Frida 管理器`）。点击图标即可直接操作，所有界面均为中文。
-> - 包名 / 描述 / 设置入口名称均已中文化。
+> - **独立 App 入口（全中文）**：通过主屏上的独立 App（`Frida 管理器`）操作，点击图标即可直接使用，所有界面均为中文；设置内入口已移除。
+> - 包名 / 描述均已中文化。
 
 ## Features
 
-- **Start / Stop / Restart** frida-server directly from Settings
+- **Start / Stop / Restart** frida-server directly from the app
 - **Server Status** — real-time display of running state, active port, binary path and version
 - **Download & Install Frida Latest Versions** — view all available frida releases and install any frida-server version directly
 - **Custom Version Install** — enter a specific version number to download and install
@@ -52,8 +52,7 @@
 ## Requirements
 
 - Jailbroken iOS device (iOS 14.0+)
-- [libSandy](https://github.com/opa334/libSandy) — for secure socket communication between Settings.app and the daemon
-- [PreferenceLoader](https://github.com/hbang/libcephei) — for the Settings panel
+- [libSandy](https://github.com/opa334/libSandy) — for secure socket communication between the app and the daemon
 
 ## Installation
 
@@ -73,14 +72,13 @@ Then search for **FridaManager** and install. The repo serves both rootless and 
 ### From .deb file
 
 1. Download the appropriate `.deb` file from [Releases](../../releases):
-   - **Rootless** (Dopamine, palera1n rootless, etc.): `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64_rootless.deb`
-   - **Rootful** (unc0ver, checkra1n, palera1n rootful, etc.): `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm_rootful.deb`
+   - **Roothide** (Dopamine roothide，默认构建): `com.b1tbreaker.fridamanager_1.0.1_iphoneos-arm64.deb`
 2. Transfer the `.deb` to your device
 3. Install via your package manager or run:
    ```bash
    dpkg -i com.b1tbreaker.fridamanager_*.deb
    ```
-4. Open **Settings** and scroll down to **FridaManager**
+4. 在主屏打开 **Frida 管理器** App
 
 ### From source
 
@@ -93,11 +91,10 @@ See [Building from Source](#building-from-source) below.
 你有两种入口可以操作 FridaManager（界面均为中文）：
 
 - **独立 App**：主屏上的 **Frida 管理器** 图标，点击即可直接打开操作界面。
-- **设置入口**：打开 **设置 > Frida 管理器**（保留作为备用入口）。
 
-首次使用步骤（任选一个入口）：
+首次使用步骤：
 
-1. 打开 **Frida 管理器**（App 或 设置内入口）
+1. 打开 **Frida 管理器** App
 2. 在 **版本管理** 分组中：
    - 点击 **浏览最新版本**，选择需要的版本后点击安装
    - 或在 **自定义版本** 中输入版本号（例如 `16.1.4`），再点击 **安装自定义版本**
@@ -145,21 +142,18 @@ frida-ps -H 127.0.0.1:<port>
 
 ## Architecture
 
-FridaManager consists of three components:
+FridaManager consists of two components:
 
 ```
 ┌─────────────────────────────┐                       ┌──────────────────────────┐
-│  Settings.app (Preferences) │                       │                          │
-│  FridaManagerPrefs bundle   │ ┐                     │   fridamgr (Root Daemon) │
-├─────────────────────────────┤  ├─ Unix Socket ────► │   LaunchDaemon (root)    │
-│  Frida 管理器 (独立 App)     │ ┘     via libSandy    │                          │
+│  Frida 管理器 (独立 App)     │    Unix Socket ────► │   fridamgr (Root Daemon) │
+│  (复用原 Prefs 的 UI 代码)   │      via libSandy    │   LaunchDaemon (root)    │
 └─────────────────────────────┘                       └──────────────────────────┘
        UI / User input (中文)                          Server management, downloads,
                                                       config, process control
 ```
 
-- **Frida 管理器（独立 App）**：主屏图标入口，全中文界面，与设置入口共用同一套 UI 代码与守护进程通信逻辑。
-- **FridaManagerPrefs bundle**：保留在「设置」中的备用入口。
+- **Frida 管理器（独立 App）**：主屏图标入口，全中文界面；复用原 `fridamgrprefs` 的 UI 代码（PSListController）与守护进程通信逻辑。设置内入口已移除。
 - **fridamgr（Root Daemon）**：以 root 权限运行，管理 frida-server。
 ## Building from Source
 
@@ -205,7 +199,7 @@ export THEOS=~/theos   # adjust if installed elsewhere
 
 `build.sh` 使用 `roothide/theos` 构建 **roothide** 产物，在 `packages/` 下生成：
 
-- `com.b1tbreaker.fridamanager_1.0.0_iphoneos-arm64.deb`
+- `com.b1tbreaker.fridamanager_1.0.1_iphoneos-arm64.deb`
 
 **Build manually:**
 
@@ -245,14 +239,11 @@ FridaManager/
 │   ├── FMDownloadManager.h/.m  # GitHub downloads and version fetching
 │   ├── entitlements.plist      # Daemon entitlements
 │   └── Info.plist
-├── fridamgrprefs/              # Settings.app preference bundle
+├── fridamgrprefs/              # 原 Settings 面板源码（不再单独打包，UI 代码被 fridamanagerapp 复用）
 │   ├── Makefile
 │   ├── FMRootListController.h/.m   # All UI controllers
 │   ├── FMSocketClient.h/.m         # Unix socket client
-│   ├── Resources/
-│   │   ├── Root.plist              # PreferenceLoader specifiers
-│   │   ├── Info.plist
-│   │   └── icon*.png               # Settings icon
+│   └── Resources/
 │   └── layout/
 │       └── Library/PreferenceLoader/Preferences/
 │           └── FridaManagerPrefs.plist

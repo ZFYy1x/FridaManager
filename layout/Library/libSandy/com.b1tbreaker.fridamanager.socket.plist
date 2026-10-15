@@ -4,7 +4,6 @@
 <dict>
 	<key>AllowedProcesses</key>
 	<array>
-		<string>Preferences</string>
 		<string>com.b1tbreaker.fridamanager</string>
 		<string>FridaManager</string>
 	</array>

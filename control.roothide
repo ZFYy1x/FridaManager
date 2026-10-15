@@ -1,9 +1,9 @@
 Package: com.b1tbreaker.fridamanager
 Name: Frida 管理器
-Version: 1.0.0
+Version: 1.0.1
 Architecture: iphoneos-arm64
-Description: 在越狱设备上通过 App 或设置管理 frida-server。启动、停止、重启、下载并配置 Frida 服务器，支持 Dopamine roothide。
+Description: 在越狱设备上通过独立 App 管理 frida-server。启动、停止、重启、下载并配置 Frida 服务器，支持 Dopamine roothide。
 Maintainer: b1tbreaker
 Author: b1tbreaker
 Section: Tweaks
-Depends: mobilesubstrate, preferenceloader, firmware (>= 14.0), com.opa334.libsandy
+Depends: mobilesubstrate, firmware (>= 14.0), com.opa334.libsandy
